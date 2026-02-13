@@ -31,6 +31,9 @@ curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw_kasmvnc/main/opencl
 - `openclaw_kasmvnc.sh`：macOS/Linux 统一管理脚本
 - `openclaw_kasmvnc.ps1`：Windows 统一管理脚本
 
+说明：脚本会自动拉取官方 `openclaw` 源码，并自动写入 KasmVNC 所需的
+`docker-compose.kasmvnc.yml`、`Dockerfile.kasmvnc` 和入口脚本，再执行容器构建与启动。
+
 两个脚本都支持以下子命令：
 - `install`
 - `uninstall`
