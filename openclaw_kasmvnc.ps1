@@ -28,6 +28,19 @@ function New-RandomHex {
   return ($buf | ForEach-Object { $_.ToString("x2") }) -join ""
 }
 
+function Ensure-BaseImage {
+  & docker image inspect openclaw:local *> $null
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "Using existing base image: openclaw:local"
+    return
+  }
+  Write-Host "Building base image: openclaw:local"
+  & docker build -t openclaw:local .
+  if ($LASTEXITCODE -ne 0) {
+    throw "docker build failed: openclaw:local"
+  }
+}
+
 function Upsert-EnvLine {
   param(
     [string]$FilePath,
@@ -67,6 +80,16 @@ function Invoke-Compose {
 function Ensure-KasmvncOverlay {
   $repoDir = Get-RepoDir
   New-Item -ItemType Directory -Force -Path (Join-Path $repoDir "scripts\docker") | Out-Null
+
+  $dockerignorePath = Join-Path $repoDir ".dockerignore"
+  if (-not (Test-Path $dockerignorePath)) {
+    @'
+.git
+node_modules
+.openclaw
+*.log
+'@ | Set-Content -Path $dockerignorePath -Encoding UTF8
+  }
 
   @'
 services:
@@ -322,10 +345,7 @@ function Install-Command {
   Push-Location $repoDir
   try {
     Ensure-KasmvncOverlay
-    & docker build -t openclaw:local .
-    if ($LASTEXITCODE -ne 0) {
-      throw "docker build failed: openclaw:local"
-    }
+    Ensure-BaseImage
     if (-not (Test-Path ".env")) {
       Copy-Item ".env.example" ".env"
     }
@@ -410,10 +430,7 @@ function Upgrade-Command {
     git checkout $Branch
     git pull --rebase origin $Branch
     Ensure-KasmvncOverlay
-    & docker build -t openclaw:local .
-    if ($LASTEXITCODE -ne 0) {
-      throw "docker build failed: openclaw:local"
-    }
+    Ensure-BaseImage
     Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
     Assert-GatewayRunning
   } finally {

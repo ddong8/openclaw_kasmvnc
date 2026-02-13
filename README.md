@@ -33,6 +33,7 @@ curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw_kasmvnc/main/opencl
 
 说明：脚本会自动拉取官方 `openclaw` 源码，并自动写入 KasmVNC 所需的
 `docker-compose.kasmvnc.yml`、`Dockerfile.kasmvnc` 和入口脚本，再执行容器构建与启动。
+脚本默认会复用已有 `openclaw:local` 镜像，只有本地不存在时才构建基础镜像。
 
 两个脚本都支持以下子命令：
 - `install`

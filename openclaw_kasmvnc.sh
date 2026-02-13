@@ -50,6 +50,15 @@ assert_cmd() {
   fi
 }
 
+ensure_base_image() {
+  if docker image inspect openclaw:local >/dev/null 2>&1; then
+    echo "Using existing base image: openclaw:local"
+    return
+  fi
+  echo "Building base image: openclaw:local"
+  docker build -t openclaw:local .
+}
+
 random_hex() {
   local bytes="${1:-32}"
   if command -v openssl >/dev/null 2>&1; then
@@ -135,6 +144,15 @@ ensure_kasmvnc_overlay() {
   local d
   d="$(repo_dir)"
   mkdir -p "$d/scripts/docker"
+
+  if [[ ! -f "$d/.dockerignore" ]]; then
+    cat >"$d/.dockerignore" <<'EOF'
+.git
+node_modules
+.openclaw
+*.log
+EOF
+  fi
 
   cat >"$d/docker-compose.kasmvnc.yml" <<'EOF'
 services:
@@ -394,7 +412,7 @@ install_cmd() {
   (
     cd "$d"
     ensure_kasmvnc_overlay
-    docker build -t openclaw:local .
+    ensure_base_image
     if [[ ! -f .env ]]; then
       cp .env.example .env
     fi
@@ -464,7 +482,7 @@ upgrade_cmd() {
     git checkout "$BRANCH"
     git pull --rebase origin "$BRANCH"
     ensure_kasmvnc_overlay
-    docker build -t openclaw:local .
+    ensure_base_image
     compose_cmd up -d --build openclaw-gateway
     assert_gateway_running
   )
