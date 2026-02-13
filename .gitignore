@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+
+# Temp
+*.tmp
+*.bak
