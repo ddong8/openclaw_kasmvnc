@@ -57,8 +57,22 @@ function Get-RepoDir {
 }
 
 function Invoke-Compose {
-  param([string[]]$Args)
-  & docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml @Args
+  param([Parameter(Mandatory = $true)][string[]]$ComposeArgs)
+  & docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml @ComposeArgs
+  if ($LASTEXITCODE -ne 0) {
+    throw "docker compose failed: $($ComposeArgs -join ' ')"
+  }
+}
+
+function Assert-GatewayRunning {
+  $cid = (& docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml ps -q openclaw-gateway | Select-Object -First 1)
+  if ([string]::IsNullOrWhiteSpace($cid)) {
+    throw "openclaw-gateway container not found after compose operation."
+  }
+  $running = (& docker inspect -f "{{.State.Running}}" $cid 2>$null)
+  if ($LASTEXITCODE -ne 0 -or "$running".Trim() -ne "true") {
+    throw "openclaw-gateway is not running (container: $cid)."
+  }
 }
 
 function Require-Repo {
@@ -127,7 +141,8 @@ function Install-Command {
     Upsert-EnvLine -FilePath ".env" -Key "LANGUAGE" -Value "zh_CN:zh"
     Upsert-EnvLine -FilePath ".env" -Key "LC_ALL" -Value "zh_CN.UTF-8"
 
-    Invoke-Compose -Args @("up", "-d", "--build", "openclaw-gateway")
+    Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
+    Assert-GatewayRunning
   } finally {
     Pop-Location
   }
@@ -147,7 +162,7 @@ function Uninstall-Command {
     Push-Location $repoDir
     try {
       if (Get-Command docker -ErrorAction SilentlyContinue) {
-        Invoke-Compose -Args @("down")
+        Invoke-Compose -ComposeArgs @("down")
       }
       Write-Host "Stopped services in: $repoDir"
     } finally {
@@ -172,7 +187,8 @@ function Restart-Command {
   Require-Repo
   Push-Location (Get-RepoDir)
   try {
-    Invoke-Compose -Args @("restart", "openclaw-gateway")
+    Invoke-Compose -ComposeArgs @("restart", "openclaw-gateway")
+    Assert-GatewayRunning
   } finally {
     Pop-Location
   }
@@ -185,7 +201,8 @@ function Upgrade-Command {
     git fetch origin $Branch
     git checkout $Branch
     git pull --rebase origin $Branch
-    Invoke-Compose -Args @("up", "-d", "--build", "openclaw-gateway")
+    Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
+    Assert-GatewayRunning
   } finally {
     Pop-Location
   }
@@ -195,7 +212,7 @@ function Status-Command {
   Require-Repo
   Push-Location (Get-RepoDir)
   try {
-    Invoke-Compose -Args @("ps")
+    Invoke-Compose -ComposeArgs @("ps")
   } finally {
     Pop-Location
   }
@@ -205,7 +222,7 @@ function Logs-Command {
   Require-Repo
   Push-Location (Get-RepoDir)
   try {
-    Invoke-Compose -Args @("logs", "--tail=$Tail", "openclaw-gateway")
+    Invoke-Compose -ComposeArgs @("logs", "--tail=$Tail", "openclaw-gateway")
   } finally {
     Pop-Location
   }

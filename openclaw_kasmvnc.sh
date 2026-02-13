@@ -131,6 +131,19 @@ compose_cmd() {
   docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml "$@"
 }
 
+assert_gateway_running() {
+  local cid
+  cid="$(compose_cmd ps -q openclaw-gateway | head -n 1)"
+  if [[ -z "$cid" ]]; then
+    echo "openclaw-gateway container not found after compose operation." >&2
+    exit 1
+  fi
+  if [[ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null || echo false)" != "true" ]]; then
+    echo "openclaw-gateway is not running (container: $cid)." >&2
+    exit 1
+  fi
+}
+
 repo_dir() {
   echo "$INSTALL_DIR/openclaw"
 }
@@ -191,6 +204,7 @@ install_cmd() {
     upsert_env_line .env LANGUAGE "zh_CN:zh"
     upsert_env_line .env LC_ALL "zh_CN.UTF-8"
     compose_cmd up -d --build openclaw-gateway
+    assert_gateway_running
   )
 
   echo
@@ -231,6 +245,7 @@ restart_cmd() {
   (
     cd "$(repo_dir)"
     compose_cmd restart openclaw-gateway
+    assert_gateway_running
   )
 }
 
@@ -242,6 +257,7 @@ upgrade_cmd() {
     git checkout "$BRANCH"
     git pull --rebase origin "$BRANCH"
     compose_cmd up -d --build openclaw-gateway
+    assert_gateway_running
   )
 }
 
