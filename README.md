@@ -167,6 +167,7 @@ chmod +x ./openclaw_kasmvnc.sh
 - VNC HTTPS 端口：`HttpsPort` / `--https-port`
 - 网关 Token：`GatewayToken` / `--gateway-token`
 - VNC 密码：`KasmPassword` / `--kasm-password`
+- 系统代理：`Proxy` / `--proxy`（默认不使用代理）
 
 示例（Windows）：
 ```powershell
@@ -186,6 +187,29 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 `
   --gateway-port 18789 \
   --https-port 8443
 ```
+
+### 使用系统代理
+
+安装时指定 `--proxy` 参数即可，容器内的 HTTP/HTTPS 请求（包括 Node.js、curl、Chromium 等）都会走代理：
+
+```bash
+# Linux/macOS
+./openclaw_kasmvnc.sh install --proxy http://192.168.1.131:10808
+
+# Windows
+powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install -Proxy "http://192.168.1.131:10808"
+```
+
+安装后也可以手动编辑 `.env` 文件开关代理：
+```env
+# 启用代理（取消注释并填写地址）
+OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
+
+# 关闭代理（注释掉或删除）
+# OPENCLAW_HTTP_PROXY=
+```
+
+修改 `.env` 后执行 `restart` 重启容器生效。
 
 ## 常见问题（FAQ）
 
