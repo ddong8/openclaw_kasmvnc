@@ -253,7 +253,8 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
-RUN chmod +x /usr/local/bin/openclaw-kasmvnc-entrypoint \
+RUN sed -i 's/\r$//' /usr/local/bin/openclaw-kasmvnc-entrypoint \
+  && chmod +x /usr/local/bin/openclaw-kasmvnc-entrypoint \
   && usermod -a -G ssl-cert node
 
 USER node
@@ -283,6 +284,14 @@ DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
 chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
+
+# Make `openclaw` command available in interactive shells
+if ! grep -q 'alias openclaw=' "${HOME}/.bashrc" 2>/dev/null; then
+  cat >> "${HOME}/.bashrc" <<'EOALIAS'
+alias openclaw='node /app/dist/index.js'
+export PATH="/app/node_modules/.bin:${PATH}"
+EOALIAS
+fi
 
 mkdir -p "${HOME}/.config" "${HOME}/.config/xfce4"
 cat > "${HOME}/.config/xfce4/helpers.rc" <<'EOH'

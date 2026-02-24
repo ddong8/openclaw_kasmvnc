@@ -66,10 +66,11 @@ function Upsert-EnvLine {
     $updated = [regex]::Replace(
       $content,
       "(?m)^$([regex]::Escape($Key))=.*$",
-      [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $line }
+      [System.Text.RegularExpressions.MatchEvaluator] { param($m) $line }
     )
     Set-Content -Path $FilePath -Value $updated -Encoding UTF8
-  } else {
+  }
+  else {
     Add-Content -Path $FilePath -Value "`r`n$line" -Encoding UTF8
   }
 }
@@ -231,6 +232,14 @@ DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
 chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
 
+# Make `openclaw` command available in interactive shells
+if ! grep -q 'alias openclaw=' "${HOME}/.bashrc" 2>/dev/null; then
+  cat >> "${HOME}/.bashrc" <<'EOALIAS'
+alias openclaw='node /app/dist/index.js'
+export PATH="/app/node_modules/.bin:${PATH}"
+EOALIAS
+fi
+
 mkdir -p "${HOME}/.config" "${HOME}/.config/xfce4"
 cat > "${HOME}/.config/xfce4/helpers.rc" <<'EOH'
 [Default Applications]
@@ -322,7 +331,8 @@ function Install-Command {
   Assert-Command -Name "docker"
   try {
     docker compose version | Out-Null
-  } catch {
+  }
+  catch {
     throw "Missing Docker Compose v2 plugin: 'docker compose'"
   }
 
@@ -340,14 +350,16 @@ function Install-Command {
   $repoDir = Get-RepoDir
   if (-not (Test-Path (Join-Path $repoDir ".git"))) {
     git clone --branch $Branch --depth 1 $RepoUrl $repoDir
-  } else {
+  }
+  else {
     Write-Host "Repo exists, pulling latest: $repoDir"
     Push-Location $repoDir
     try {
       git fetch origin $Branch
       git checkout $Branch
       git pull --rebase origin $Branch
-    } finally {
+    }
+    finally {
       Pop-Location
     }
   }
@@ -380,7 +392,8 @@ function Install-Command {
 
     Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
     Assert-GatewayRunning
-  } finally {
+  }
+  finally {
     Pop-Location
   }
 
@@ -402,10 +415,12 @@ function Uninstall-Command {
         Invoke-Compose -ComposeArgs @("down")
       }
       Write-Host "Stopped services in: $repoDir"
-    } finally {
+    }
+    finally {
       Pop-Location
     }
-  } else {
+  }
+  else {
     Write-Host "Repo directory not found: $repoDir"
   }
 
@@ -414,7 +429,8 @@ function Uninstall-Command {
       Remove-Item -Recurse -Force $InstallDir
       Write-Host "Removed install directory: $InstallDir"
     }
-  } else {
+  }
+  else {
     Write-Host "Uninstall completed without deleting files."
     Write-Host "Use -Purge to remove install directory."
   }
@@ -427,7 +443,8 @@ function Restart-Command {
     Ensure-KasmvncOverlay
     Invoke-Compose -ComposeArgs @("restart", "openclaw-gateway")
     Assert-GatewayRunning
-  } finally {
+  }
+  finally {
     Pop-Location
   }
 }
@@ -443,7 +460,8 @@ function Upgrade-Command {
     Ensure-BaseImage
     Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
     Assert-GatewayRunning
-  } finally {
+  }
+  finally {
     Pop-Location
   }
 }
@@ -453,7 +471,8 @@ function Status-Command {
   Push-Location (Get-RepoDir)
   try {
     Invoke-Compose -ComposeArgs @("ps")
-  } finally {
+  }
+  finally {
     Pop-Location
   }
 }
@@ -463,7 +482,8 @@ function Logs-Command {
   Push-Location (Get-RepoDir)
   try {
     Invoke-Compose -ComposeArgs @("logs", "--tail=$Tail", "openclaw-gateway")
-  } finally {
+  }
+  finally {
     Pop-Location
   }
 }
