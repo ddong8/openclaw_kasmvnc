@@ -110,7 +110,7 @@ services:
       dockerfile: Dockerfile.kasmvnc
       args:
         OPENCLAW_BASE_IMAGE: ${OPENCLAW_IMAGE:-openclaw:local}
-        KASMVNC_VERSION: ${OPENCLAW_KASMVNC_VERSION:-1.4.0}
+        KASMVNC_VERSION: ${OPENCLAW_KASMVNC_VERSION:-1.3.0}
     image: ${OPENCLAW_KASMVNC_IMAGE:-openclaw:kasmvnc}
     command:
       [
@@ -158,7 +158,7 @@ ENV GTK_IM_MODULE=ibus
 ENV QT_IM_MODULE=ibus
 ENV XMODIFIERS=@im=ibus
 
-ARG KASMVNC_VERSION=1.4.0
+ARG KASMVNC_VERSION=1.3.0
 ARG TARGETARCH
 
 RUN apt-get update \
