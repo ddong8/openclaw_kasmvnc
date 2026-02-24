@@ -138,10 +138,10 @@ services:
       https_proxy: ${OPENCLAW_HTTP_PROXY:-}
       NO_PROXY: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
       no_proxy: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
+      OPENCLAW_NO_RESPAWN: "1"
     ports:
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
-    restart: unless-stopped
 '@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "docker-compose.kasmvnc.yml") -Value $_ }
 
   @'
