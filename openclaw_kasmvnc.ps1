@@ -180,7 +180,7 @@ RUN apt-get update \
 
 RUN printf '%s\n' \
   '#!/usr/bin/env bash' \
-  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --no-first-run --disable-background-networking --disable-sync --disable-default-apps --disable-extensions --disable-component-update --disable-features=TranslateUI "$@"' \
+  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --disable-infobars --no-first-run --disable-background-networking --disable-sync --disable-default-apps --disable-extensions --disable-component-update --disable-features=TranslateUI "$@"' \
   > /usr/local/bin/chromium-kasm \
   && chmod +x /usr/local/bin/chromium-kasm \
   && sed -i 's|^Exec=/usr/bin/chromium %U|Exec=/usr/local/bin/chromium-kasm %U|' /usr/share/applications/chromium.desktop \
