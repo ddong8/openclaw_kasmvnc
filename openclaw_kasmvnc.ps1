@@ -256,8 +256,23 @@ KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
 RESOLUTION="${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}"
 DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
-mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
+mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}" "${HOME}/.openclaw"
 chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
+
+# Ensure gateway config allows non-loopback Control UI access
+if [ ! -f "${HOME}/.openclaw/openclaw.json" ]; then
+  cat > "${HOME}/.openclaw/openclaw.json" <<'EOCFG'
+{
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "controlUi": {
+      "dangerouslyAllowHostHeaderOriginFallback": true
+    }
+  }
+}
+EOCFG
+fi
 
 # Make `openclaw` command available in interactive shells
 if ! grep -q 'alias openclaw=' "${HOME}/.bashrc" 2>/dev/null; then
