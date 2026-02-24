@@ -171,6 +171,7 @@ RUN apt-get update \
     gnupg \
     ibus \
     ibus-libpinyin \
+    libdatetime-perl \
     libegl1 \
     libglu1-mesa \
     libglx-mesa0 \
