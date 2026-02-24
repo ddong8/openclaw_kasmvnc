@@ -379,9 +379,14 @@ if [[ -n "${KASMVNC_PASSWORD}" ]]; then
     | vncpasswd -u "${KASMVNC_USER}" -w -r >/dev/null || true
 fi
 
+# Clean up stale VNC/X11 state from previous container runs
 if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
+pkill -9 -f "Xvnc.*${DISPLAY}" 2>/dev/null || true
+DISPLAY_NUM="${DISPLAY#:}"
+rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
+rm -f "${HOME}/.vnc/"*"${DISPLAY}"*.pid 2>/dev/null || true
 
 vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" >/tmp/openclaw-kasmvnc.log 2>&1 || true
 
