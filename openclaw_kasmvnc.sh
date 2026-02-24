@@ -199,6 +199,7 @@ services:
     ports:
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
+    restart: unless-stopped
 EOF
 
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
