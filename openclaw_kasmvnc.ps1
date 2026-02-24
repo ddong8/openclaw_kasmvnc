@@ -184,7 +184,28 @@ RUN printf '%s\n' \
   > /usr/local/bin/chromium-kasm \
   && chmod +x /usr/local/bin/chromium-kasm \
   && sed -i 's|^Exec=/usr/bin/chromium %U|Exec=/usr/local/bin/chromium-kasm %U|' /usr/share/applications/chromium.desktop \
-  && sed -i 's|^Exec=exo-open --launch WebBrowser %u|Exec=/usr/local/bin/chromium-kasm %u|' /usr/share/applications/xfce4-web-browser.desktop
+  && sed -i 's|^Exec=exo-open --launch WebBrowser %u|Exec=/usr/local/bin/chromium-kasm %u|' /usr/share/applications/xfce4-web-browser.desktop \
+  && printf '%s\n' \
+    '[Desktop Entry]' \
+    'Version=1.0' \
+    'Name=Chromium (KasmVNC)' \
+    'GenericName=Web Browser' \
+    'Exec=/usr/local/bin/chromium-kasm %U' \
+    'Terminal=false' \
+    'Type=Application' \
+    'Icon=chromium' \
+    'Categories=Network;WebBrowser;' \
+    'MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;' \
+    > /usr/share/applications/chromium-kasm.desktop \
+  && printf '%s\n' \
+    '[Desktop Entry]' \
+    'Type=X-XFCE-Helper' \
+    'X-XFCE-Category=WebBrowser' \
+    'X-XFCE-Commands=/usr/local/bin/chromium-kasm' \
+    'X-XFCE-CommandsWithParameter=/usr/local/bin/chromium-kasm "%s"' \
+    'Name=Chromium (KasmVNC)' \
+    'Icon=chromium' \
+    > /usr/share/xfce4/helpers/chromium-kasm.desktop
 
 RUN set -eux; \
   case "${TARGETARCH}" in \
@@ -224,6 +245,7 @@ export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/xdg-runtime}"
 export GTK_IM_MODULE="${GTK_IM_MODULE:-ibus}"
 export QT_IM_MODULE="${QT_IM_MODULE:-ibus}"
 export XMODIFIERS="${XMODIFIERS:-@im=ibus}"
+export BROWSER="/usr/local/bin/chromium-kasm"
 
 KASMVNC_USER="${OPENCLAW_KASMVNC_USER:-node}"
 KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
@@ -243,14 +265,13 @@ fi
 
 mkdir -p "${HOME}/.config" "${HOME}/.config/xfce4"
 cat > "${HOME}/.config/xfce4/helpers.rc" <<'EOH'
-[Default Applications]
-WebBrowser=chromium.desktop
+WebBrowser=chromium-kasm
 EOH
 cat > "${HOME}/.config/mimeapps.list" <<'EOH'
 [Default Applications]
-x-scheme-handler/http=chromium.desktop
-x-scheme-handler/https=chromium.desktop
-text/html=chromium.desktop
+x-scheme-handler/http=chromium-kasm.desktop
+x-scheme-handler/https=chromium-kasm.desktop
+text/html=chromium-kasm.desktop
 EOH
 mkdir -p "${HOME}/.config/autostart"
 cat > "${HOME}/.config/autostart/ibus-daemon.desktop" <<'EOH'
