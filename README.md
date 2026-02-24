@@ -31,17 +31,17 @@ curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw_kasmvnc/main/opencl
 - `openclaw_kasmvnc.sh`：macOS/Linux 统一管理脚本
 - `openclaw_kasmvnc.ps1`：Windows 统一管理脚本
 
-说明：脚本会自动拉取官方 `openclaw` 源码，并自动写入 KasmVNC 所需的
+说明：脚本会自动拉取官方 `openclaw` 源码（默认使用**最新发行版 tag**），并自动写入 KasmVNC 所需的
 `docker-compose.kasmvnc.yml`、`Dockerfile.kasmvnc` 和入口脚本，再执行容器构建与启动。
 脚本默认会复用已有 `openclaw:local` 镜像，只有本地不存在时才构建基础镜像。
 
 两个脚本都支持以下子命令：
-- `install`
-- `uninstall`
-- `restart`
-- `upgrade`
-- `status`
-- `logs`
+- `install` — 克隆/拉取 + 配置 + 构建/启动容器
+- `uninstall` — 停止容器；加 `--purge` 删除安装目录
+- `restart` — 重启 openclaw-gateway 容器
+- `upgrade` — 拉取最新代码并重建/重启容器
+- `status` — 查看 compose 服务状态
+- `logs` — 查看 compose 日志
 
 ## 前置条件
 
@@ -155,26 +155,37 @@ chmod +x ./openclaw_kasmvnc.sh
 2. 执行 `restart`（先用轻量重启）；
 3. 用 `status` 和 `logs --tail 200` 验证是否生效。
 
+> **注意**：容器内已启用 `OPENCLAW_NO_RESPAWN=1`，配置变更时 gateway 会在进程内重启，
+> 而非重新启动容器，VNC 桌面会话不会中断。
+
 如果你修改的是镜像层相关内容（例如 Dockerfile、系统依赖、桌面组件），仅 `restart` 不够，需要执行 `upgrade` 触发重建镜像。
 
 ## 可选参数
 
 两个脚本都支持以下参数（按平台写法不同）：
-- 安装目录：`InstallDir` / `--install-dir`
-- 分支：`Branch` / `--branch`
-- 仓库：`RepoUrl` / `--repo-url`
-- 网关端口：`GatewayPort` / `--gateway-port`
-- VNC HTTPS 端口：`HttpsPort` / `--https-port`
-- 网关 Token：`GatewayToken` / `--gateway-token`
-- VNC 密码：`KasmPassword` / `--kasm-password`
-- 系统代理：`Proxy` / `--proxy`（默认不使用代理）
+
+| 参数 | Windows (PS1) | macOS/Linux (sh) | 默认值 |
+|------|---------------|-------------------|--------|
+| 安装目录 | `-InstallDir` | `--install-dir` | `$HOME/openclaw-kasmvnc` |
+| 分支/标签 | `-Branch` | `--branch` | 最新发行版 tag（API 失败回退 `main`） |
+| 仓库 URL | `-RepoUrl` | `--repo-url` | `https://github.com/openclaw/openclaw.git` |
+| 网关端口 | `-GatewayPort` | `--gateway-port` | `18789` |
+| VNC HTTPS 端口 | `-HttpsPort` | `--https-port` | `8443` |
+| 网关 Token | `-GatewayToken` | `--gateway-token` | 自动生成 |
+| VNC 密码 | `-KasmPassword` | `--kasm-password` | 自动生成 |
+| 系统代理 | `-Proxy` | `--proxy` | 无 |
+| 日志行数 | `-Tail` | `--tail` | `200` |
+| 清除安装目录 | `-Purge` | `--purge` | 否 |
+
+> **分支/标签说明**：脚本默认通过 GitHub API 自动获取最新发行版 tag（如 `v2026.2.23`）。
+> 如果 API 不可用（如无网络），会回退到 `main` 分支。
+> 你也可以手动指定：`--branch main`（跟踪开发分支）或 `--branch v2026.2.20`（锁定特定版本）。
 
 示例（Windows）：
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 `
   -Command install `
   -InstallDir "D:\openclaw-deploy" `
-  -Branch "main" `
   -GatewayPort "18789" `
   -HttpsPort "8443"
 ```
@@ -183,9 +194,13 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 `
 ```bash
 ./openclaw_kasmvnc.sh install \
   --install-dir "$HOME/openclaw-deploy" \
-  --branch main \
   --gateway-port 18789 \
   --https-port 8443
+```
+
+指定使用 main 分支（开发版）：
+```bash
+./openclaw_kasmvnc.sh install --branch main
 ```
 
 ### 使用系统代理
@@ -210,6 +225,26 @@ OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 ```
 
 修改 `.env` 后执行 `restart` 重启容器生效。
+
+### 选择 KasmVNC 版本
+
+默认使用 KasmVNC **1.3.0**。可通过环境变量切换：
+
+```bash
+# Linux/macOS
+OPENCLAW_KASMVNC_VERSION=1.4.0 ./openclaw_kasmvnc.sh install
+
+# Windows
+$env:OPENCLAW_KASMVNC_VERSION="1.4.0"
+powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install
+```
+
+## 内置优化
+
+- **本地输入法默认启用**：首次访问 KasmVNC 桌面时，"IME Input Mode（启用本地输入法）"默认开启，无需手动设置。
+- **中文环境预配置**：容器内默认设置 `TZ=Asia/Shanghai`、`LANG=zh_CN.UTF-8`，已预装中文字体和 ibus-libpinyin 输入法。
+- **进程内重启**：启用 `OPENCLAW_NO_RESPAWN=1`，配置变更时 gateway 在进程内热重启，不重建容器，VNC 桌面会话保持。
+- **X11 状态清理**：入口脚本自动清理残留的 X11 锁文件和 VNC 进程，避免容器重启后黑屏。
 
 ## 常见问题（FAQ）
 
@@ -236,14 +271,10 @@ OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 ### 3. 进入桌面后黑屏
 
 处理顺序：
-1. 先重启服务：
-   - `restart`
-2. 查看状态：
-   - `status`
-3. 查看日志：
-   - `logs`（建议先看最近 200 行）
-4. 仍有问题时执行升级重建：
-   - `upgrade`
+1. 先重启服务：`restart`
+2. 查看状态：`status`
+3. 查看日志：`logs`（建议先看最近 200 行）
+4. 仍有问题时执行升级重建：`upgrade`
 
 ### 4. 点击桌面浏览器图标打不开
 
@@ -256,7 +287,7 @@ OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 
 常见原因：
 - `.env` 缺少关键参数；
-- 本机目录权限异常；
+- 本机目录权限异常（macOS 上无需 `chown`，脚本已自动处理）；
 - 端口冲突。
 
 处理：
@@ -264,7 +295,15 @@ OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 - 检查目标安装目录是否可读写；
 - 更换端口后再次安装。
 
-### 6. 日志太多不好看
+> 注意：脚本内已设置 `OPENCLAW_NO_RESPAWN=1`，正常的配置变更不会触发容器重启。
+> 如果仍出现容器反复重启，多为镜像构建或依赖问题，建议 `upgrade` 重建。
+
+### 6. macOS 上安装出现 `chown: Operation not permitted`
+
+说明：macOS Docker Desktop 使用 VirtioFS 自动处理文件权限映射，不需要 `chown`。
+脚本已针对 macOS 跳过此步骤，如使用旧脚本请升级到最新版。
+
+### 7. 日志太多不好看
 
 建议使用：
 - `logs --tail 200`：只看最近日志
