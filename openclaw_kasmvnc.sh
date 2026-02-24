@@ -452,6 +452,7 @@ install_cmd() {
       cp .env.example .env
     fi
     mkdir -p .openclaw .openclaw/workspace
+    chown -R 1000:1000 .openclaw
     upsert_env_line .env OPENCLAW_CONFIG_DIR "./.openclaw"
     upsert_env_line .env OPENCLAW_WORKSPACE_DIR "./.openclaw/workspace"
     upsert_env_line .env OPENCLAW_GATEWAY_TOKEN "$GATEWAY_TOKEN"
