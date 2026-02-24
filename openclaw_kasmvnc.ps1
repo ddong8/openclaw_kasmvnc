@@ -133,6 +133,7 @@ services:
       LC_ALL: zh_CN.UTF-8
     ports:
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
+    shm_size: '2gb'
 '@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "docker-compose.kasmvnc.yml") -Value $_ }
 
   @'
@@ -179,7 +180,7 @@ RUN apt-get update \
 
 RUN printf '%s\n' \
   '#!/usr/bin/env bash' \
-  'exec /usr/bin/chromium --no-sandbox --disable-gpu "$@"' \
+  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer "$@"' \
   > /usr/local/bin/chromium-kasm \
   && chmod +x /usr/local/bin/chromium-kasm \
   && sed -i 's|^Exec=/usr/bin/chromium %U|Exec=/usr/local/bin/chromium-kasm %U|' /usr/share/applications/chromium.desktop \
