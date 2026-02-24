@@ -232,16 +232,13 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 # Default "Enable Local IME" to true in the KasmVNC web client
-RUN printf '%s\n' \
-  'try{if(localStorage.getItem("enable_ime")===null){localStorage.setItem("enable_ime","true");}}catch(e){}' \
-  > /usr/share/kasmvnc/www/kasm_defaults.js \
-  && for f in /usr/share/kasmvnc/www/index.html /usr/share/kasmvnc/www/vnc.html; do \
-       if [ -f "$f" ]; then \
-         sed -i 's|</head>|<script src="kasm_defaults.js"></script></head>|' "$f" 2>/dev/null \
-         || sed -i 's|</body>|<script src="kasm_defaults.js"></script></body>|' "$f" 2>/dev/null \
-         || true; \
-       fi; \
-     done
+# KasmVNC 1.3.0 minifies index.html (no </head> or </body> tags), so we
+# append the script tag at the end of the file instead of using sed.
+RUN for f in /usr/share/kasmvnc/www/index.html /usr/share/kasmvnc/www/vnc.html; do \
+      if [ -f "$f" ]; then \
+        echo '<script>try{if(localStorage.getItem("enable_ime")===null){localStorage.setItem("enable_ime","true");}}catch(e){}</script>' >> "$f"; \
+      fi; \
+    done
 
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/openclaw-kasmvnc-entrypoint \
