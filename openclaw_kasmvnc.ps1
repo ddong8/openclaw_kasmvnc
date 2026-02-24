@@ -21,6 +21,15 @@ function Assert-Command {
   }
 }
 
+function Set-UnixContent {
+  param(
+    [string]$Path,
+    [string]$Value
+  )
+  $lf = $Value -replace "`r`n", "`n"
+  [System.IO.File]::WriteAllText($Path, $lf, [System.Text.UTF8Encoding]::new($false))
+}
+
 function New-RandomHex {
   param([int]$Bytes = 32)
   $buf = New-Object byte[] $Bytes
@@ -88,7 +97,7 @@ function Ensure-KasmvncOverlay {
 node_modules
 .openclaw
 *.log
-'@ | Set-Content -Path $dockerignorePath -Encoding UTF8
+'@ | ForEach-Object { Set-UnixContent -Path $dockerignorePath -Value $_ }
   }
 
   @'
@@ -123,7 +132,7 @@ services:
       LC_ALL: zh_CN.UTF-8
     ports:
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
-'@ | Set-Content -Path (Join-Path $repoDir "docker-compose.kasmvnc.yml") -Encoding UTF8
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "docker-compose.kasmvnc.yml") -Value $_ }
 
   @'
 ARG OPENCLAW_BASE_IMAGE=openclaw:local
@@ -190,7 +199,8 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
-RUN chmod +x /usr/local/bin/openclaw-kasmvnc-entrypoint \
+RUN sed -i 's/\r$//' /usr/local/bin/openclaw-kasmvnc-entrypoint \
+  && chmod +x /usr/local/bin/openclaw-kasmvnc-entrypoint \
   && usermod -a -G ssl-cert node
 
 USER node
@@ -199,7 +209,7 @@ EXPOSE 18789 18790 8443 8444
 
 ENTRYPOINT ["openclaw-kasmvnc-entrypoint"]
 CMD ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
-'@ | Set-Content -Path (Join-Path $repoDir "Dockerfile.kasmvnc") -Encoding UTF8
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "Dockerfile.kasmvnc") -Value $_ }
 
   @'
 #!/usr/bin/env bash
@@ -286,7 +296,7 @@ if [[ "$#" -gt 0 ]]; then
 fi
 
 sleep infinity
-'@ | Set-Content -Path (Join-Path $repoDir "scripts\docker\openclaw-kasmvnc-entrypoint.sh") -Encoding UTF8
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "scripts\docker\openclaw-kasmvnc-entrypoint.sh") -Value $_ }
 }
 
 function Assert-GatewayRunning {
