@@ -215,6 +215,13 @@ services:
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
     privileged: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 EOF
 
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
@@ -345,6 +352,12 @@ export GTK_IM_MODULE="${GTK_IM_MODULE:-ibus}"
 export QT_IM_MODULE="${QT_IM_MODULE:-ibus}"
 export XMODIFIERS="${XMODIFIERS:-@im=ibus}"
 export BROWSER="/usr/local/bin/chromium-kasm"
+
+# Resolve OpenClaw version from package.json for UI display
+if [ -z "${OPENCLAW_VERSION:-}" ]; then
+  OPENCLAW_VERSION=$(node -p "try{require('/app/package.json').version}catch(e){'dev'}" 2>/dev/null || echo "dev")
+  export OPENCLAW_VERSION
+fi
 
 KASMVNC_USER="${OPENCLAW_KASMVNC_USER:-node}"
 KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
