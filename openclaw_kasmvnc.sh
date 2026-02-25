@@ -437,15 +437,21 @@ if command -v dconf >/dev/null 2>&1 && [ -f /tmp/ibus-dconf-dump ]; then
 fi
 if command -v ibus-daemon >/dev/null 2>&1; then
   ibus-daemon -drx >/tmp/openclaw-ibus.log 2>&1 || true
-  # Force-activate libpinyin as the default engine (retry up to 5s for daemon readiness)
-  for _i in 1 2 3 4 5; do
-    if ibus engine libpinyin >/dev/null 2>&1; then break; fi
-    sleep 1
-  done
 fi
 exec startxfce4
 EOH
 chmod +x "${HOME}/.vnc/xstartup"
+
+# Autostart: force-activate libpinyin AFTER XFCE desktop is fully loaded
+cat > "${HOME}/.config/autostart/ibus-activate-pinyin.desktop" <<'EOH'
+[Desktop Entry]
+Type=Application
+Name=Activate IBus Pinyin
+Exec=bash -c "sleep 3 && ibus engine libpinyin"
+Terminal=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+EOH
 
 if command -v /usr/lib/kasmvncserver/select-de.sh >/dev/null 2>&1; then
   /usr/lib/kasmvncserver/select-de.sh -y -s XFCE >/tmp/openclaw-kasmvnc-selectde.log 2>&1 || true
