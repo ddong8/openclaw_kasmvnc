@@ -6,22 +6,6 @@ if [[ $# -gt 0 ]]; then
   shift
 fi
 
-REPO_URL="${REPO_URL:-https://github.com/openclaw/openclaw.git}"
-
-# Resolve the latest release tag from GitHub API; fall back to "main".
-resolve_latest_tag() {
-  local tag
-  tag=$(curl -sf --connect-timeout 5 \
-    "https://api.github.com/repos/openclaw/openclaw/releases/latest" \
-    | sed -n 's/.*"tag_name" *: *"\([^"]*\)".*/\1/p' | head -1) 2>/dev/null || true
-  if [[ -n "$tag" ]]; then
-    echo "$tag"
-  else
-    echo "main"
-  fi
-}
-
-BRANCH="${BRANCH:-$(resolve_latest_tag)}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/openclaw-kasmvnc}"
 GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"
 KASM_PASSWORD="${KASM_PASSWORD:-}"
@@ -37,22 +21,20 @@ Usage:
   ./openclaw_kasmvnc.sh <command> [options]
 
 Commands:
-  install      Clone/pull + configure + build/run container
+  install      Configure + build/run container (no git required)
   uninstall    Stop container; optional --purge removes install dir
   restart      Restart openclaw-gateway container
-  upgrade      Pull latest repo and rebuild/restart container
+  upgrade      Rebuild container with latest npm package
   status       Show compose service status
   logs         Show compose logs (--tail <n>, default 200)
 
 Options:
-  --repo-url <url>       Git repo URL (default: https://github.com/openclaw/openclaw.git)
-  --branch <name>        Git branch/tag (default: latest release, fallback: main)
   --install-dir <path>   Install directory (default: $HOME/openclaw-kasmvnc)
   --gateway-token <str>  OPENCLAW_GATEWAY_TOKEN (auto-generate on install if omitted)
   --kasm-password <str>  OPENCLAW_KASMVNC_PASSWORD (auto-generate on install if omitted)
   --https-port <port>    KasmVNC HTTPS host port (default: 8443)
   --gateway-port <port>  OpenClaw gateway host port (default: 18789)
-  --proxy <url>           HTTP proxy for container (default: none, e.g. http://192.168.1.131:10808)
+  --proxy <url>          HTTP proxy for container (default: none)
   --tail <n>             Log lines for logs command (default: 200)
   --purge                For uninstall: delete install dir
   -h, --help             Show this help
@@ -97,14 +79,6 @@ upsert_env_line() {
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --repo-url)
-        REPO_URL="${2:?missing value for --repo-url}"
-        shift 2
-        ;;
-      --branch)
-        BRANCH="${2:?missing value for --branch}"
-        shift 2
-        ;;
       --install-dir)
         INSTALL_DIR="${2:?missing value for --install-dir}"
         shift 2
@@ -151,24 +125,14 @@ parse_args() {
 }
 
 compose_cmd() {
-  docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml "$@"
+  docker compose -f docker-compose.yml "$@"
 }
 
-ensure_kasmvnc_overlay() {
-  local d
-  d="$(repo_dir)"
+ensure_build_context() {
+  local d="$INSTALL_DIR"
   mkdir -p "$d/scripts/docker"
 
-  if [[ ! -f "$d/.dockerignore" ]]; then
-    cat >"$d/.dockerignore" <<'EOF'
-.git
-node_modules
-.openclaw
-*.log
-EOF
-  fi
-
-  cat >"$d/docker-compose.kasmvnc.yml" <<'EOF'
+  cat >"$d/docker-compose.yml" <<'EOF'
 services:
   openclaw-gateway:
     build:
@@ -188,6 +152,9 @@ services:
         "18789",
       ]
     environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       OPENCLAW_KASMVNC_USER: ${OPENCLAW_KASMVNC_USER:-node}
       OPENCLAW_KASMVNC_PASSWORD: ${OPENCLAW_KASMVNC_PASSWORD:-}
       OPENCLAW_KASMVNC_RESOLUTION: ${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}
@@ -203,10 +170,17 @@ services:
       NO_PROXY: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
       no_proxy: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
       OPENCLAW_NO_RESPAWN: "1"
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-./.openclaw}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-./.openclaw/workspace}:/home/node/.openclaw/workspace
     ports:
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "${OPENCLAW_GATEWAY_BRIDGE_PORT:-18790}:18790"
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
     privileged: true
+    init: true
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -520,21 +494,15 @@ assert_gateway_running() {
   fi
 }
 
-repo_dir() {
-  echo "$INSTALL_DIR/openclaw"
-}
-
-require_repo() {
-  local d
-  d="$(repo_dir)"
-  if [[ ! -d "$d/.git" ]]; then
-    echo "Repo not found: $d" >&2
+require_install_dir() {
+  if [[ ! -d "$INSTALL_DIR" ]]; then
+    echo "Install directory not found: $INSTALL_DIR" >&2
+    echo "Run './openclaw_kasmvnc.sh install' first." >&2
     exit 1
   fi
 }
 
 install_cmd() {
-  assert_cmd git
   assert_cmd docker
   if ! docker compose version >/dev/null 2>&1; then
     echo "Missing Docker Compose v2 plugin: 'docker compose'" >&2
@@ -549,29 +517,10 @@ install_cmd() {
   fi
 
   mkdir -p "$INSTALL_DIR"
-  local d
-  d="$(repo_dir)"
-  if [[ ! -d "$d/.git" ]]; then
-    git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$d"
-  else
-    echo "Repo exists, updating to $BRANCH: $d"
-    (
-      cd "$d"
-      git fetch origin --tags
-      git checkout "$BRANCH" 2>/dev/null || git checkout "tags/$BRANCH" -b "release-$BRANCH" 2>/dev/null || true
-      # Only pull if on a branch (tags are immutable)
-      if git symbolic-ref -q HEAD >/dev/null 2>&1; then
-        git pull --rebase origin "$BRANCH" 2>/dev/null || true
-      fi
-    )
-  fi
+  ensure_build_context
 
   (
-    cd "$d"
-    ensure_kasmvnc_overlay
-    if [[ ! -f .env ]]; then
-      cp .env.example .env
-    fi
+    cd "$INSTALL_DIR"
     mkdir -p .openclaw .openclaw/workspace
     if [[ "$(uname -s)" == "Linux" ]]; then
       chown -R 1000:1000 .openclaw 2>/dev/null || true
@@ -595,7 +544,7 @@ install_cmd() {
 
   echo
   echo "Install complete."
-  echo "Repo: $d"
+  echo "Directory: $INSTALL_DIR"
   echo "WebChat: http://127.0.0.1:${GATEWAY_PORT}/chat?session=main"
   echo "Desktop: https://127.0.0.1:${HTTPS_PORT}"
   echo "OPENCLAW_GATEWAY_TOKEN=${GATEWAY_TOKEN}"
@@ -603,18 +552,16 @@ install_cmd() {
 }
 
 uninstall_cmd() {
-  local d
-  d="$(repo_dir)"
-  if [[ -d "$d" ]]; then
+  if [[ -d "$INSTALL_DIR" ]]; then
     (
-      cd "$d"
+      cd "$INSTALL_DIR"
       if command -v docker >/dev/null 2>&1; then
         compose_cmd down || true
       fi
     )
-    echo "Stopped services in: $d"
+    echo "Stopped services in: $INSTALL_DIR"
   else
-    echo "Repo directory not found: $d"
+    echo "Install directory not found: $INSTALL_DIR"
   fi
 
   if [[ "$PURGE" -eq 1 ]]; then
@@ -627,42 +574,38 @@ uninstall_cmd() {
 }
 
 restart_cmd() {
-  require_repo
+  require_install_dir
   (
-    cd "$(repo_dir)"
-    ensure_kasmvnc_overlay
+    cd "$INSTALL_DIR"
+    ensure_build_context
     compose_cmd restart openclaw-gateway
     assert_gateway_running
   )
 }
 
 upgrade_cmd() {
-  require_repo
+  require_install_dir
   (
-    cd "$(repo_dir)"
-    git fetch origin --tags
-    git checkout "$BRANCH" 2>/dev/null || git checkout "tags/$BRANCH" -b "release-$BRANCH" 2>/dev/null || true
-    if git symbolic-ref -q HEAD >/dev/null 2>&1; then
-      git pull --rebase origin "$BRANCH" 2>/dev/null || true
-    fi
-    ensure_kasmvnc_overlay
-    compose_cmd up -d --build openclaw-gateway
+    cd "$INSTALL_DIR"
+    ensure_build_context
+    compose_cmd build --no-cache openclaw-gateway
+    compose_cmd up -d openclaw-gateway
     assert_gateway_running
   )
 }
 
 status_cmd() {
-  require_repo
+  require_install_dir
   (
-    cd "$(repo_dir)"
+    cd "$INSTALL_DIR"
     compose_cmd ps
   )
 }
 
 logs_cmd() {
-  require_repo
+  require_install_dir
   (
-    cd "$(repo_dir)"
+    cd "$INSTALL_DIR"
     compose_cmd logs --tail="$TAIL_LINES" openclaw-gateway
   )
 }

@@ -1,8 +1,6 @@
 param(
   [ValidateSet("install", "uninstall", "restart", "upgrade", "status", "logs")]
   [string]$Command = "install",
-  [string]$RepoUrl = "https://github.com/openclaw/openclaw.git",
-  [string]$Branch = "",
   [string]$InstallDir = "$HOME\openclaw-kasmvnc",
   [string]$GatewayToken = "",
   [string]$KasmPassword = "",
@@ -14,19 +12,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-
-# Resolve the latest release tag from GitHub API; fall back to "main".
-function Resolve-LatestTag {
-  try {
-    $resp = Invoke-RestMethod -Uri "https://api.github.com/repos/openclaw/openclaw/releases/latest" `
-      -TimeoutSec 5 -ErrorAction Stop
-    if ($resp.tag_name) { return $resp.tag_name }
-  }
-  catch {}
-  return "main"
-}
-
-if (-not $Branch) { $Branch = Resolve-LatestTag }
 
 function Assert-Command {
   param([string]$Name)
@@ -79,31 +64,16 @@ function Upsert-EnvLine {
   }
 }
 
-function Get-RepoDir {
-  return (Join-Path $InstallDir "openclaw")
-}
-
 function Invoke-Compose {
   param([Parameter(Mandatory = $true)][string[]]$ComposeArgs)
-  & docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml @ComposeArgs
+  & docker compose -f docker-compose.yml @ComposeArgs
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose failed: $($ComposeArgs -join ' ')"
   }
 }
 
-function Ensure-KasmvncOverlay {
-  $repoDir = Get-RepoDir
-  New-Item -ItemType Directory -Force -Path (Join-Path $repoDir "scripts\docker") | Out-Null
-
-  $dockerignorePath = Join-Path $repoDir ".dockerignore"
-  if (-not (Test-Path $dockerignorePath)) {
-    @'
-.git
-node_modules
-.openclaw
-*.log
-'@ | ForEach-Object { Set-UnixContent -Path $dockerignorePath -Value $_ }
-  }
+function Ensure-BuildContext {
+  New-Item -ItemType Directory -Force -Path (Join-Path $InstallDir "scripts\docker") | Out-Null
 
   @'
 services:
@@ -125,6 +95,9 @@ services:
         "18789",
       ]
     environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       OPENCLAW_KASMVNC_USER: ${OPENCLAW_KASMVNC_USER:-node}
       OPENCLAW_KASMVNC_PASSWORD: ${OPENCLAW_KASMVNC_PASSWORD:-}
       OPENCLAW_KASMVNC_RESOLUTION: ${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}
@@ -140,10 +113,17 @@ services:
       NO_PROXY: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
       no_proxy: ${OPENCLAW_NO_PROXY:-localhost,127.0.0.1}
       OPENCLAW_NO_RESPAWN: "1"
+    volumes:
+      - ${OPENCLAW_CONFIG_DIR:-./.openclaw}:/home/node/.openclaw
+      - ${OPENCLAW_WORKSPACE_DIR:-./.openclaw/workspace}:/home/node/.openclaw/workspace
     ports:
+      - "${OPENCLAW_GATEWAY_PORT:-18789}:18789"
+      - "${OPENCLAW_GATEWAY_BRIDGE_PORT:-18790}:18790"
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
     privileged: true
+    init: true
+    restart: unless-stopped
     deploy:
       resources:
         reservations:
@@ -151,7 +131,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "docker-compose.kasmvnc.yml") -Value $_ }
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "docker-compose.yml") -Value $_ }
 
   @'
 FROM node:22-bookworm-slim
@@ -254,7 +234,6 @@ RUN set -eux; \
   rm -f "/tmp/${pkg}"; \
   rm -rf /var/lib/apt/lists/*
 
-
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
@@ -268,7 +247,7 @@ EXPOSE 18789 18790 8443 8444
 
 ENTRYPOINT ["openclaw-kasmvnc-entrypoint"]
 CMD ["openclaw", "gateway", "--bind", "lan", "--port", "18789"]
-'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "Dockerfile.kasmvnc") -Value $_ }
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "Dockerfile.kasmvnc") -Value $_ }
 
   @'
 #!/usr/bin/env bash
@@ -403,7 +382,7 @@ if [[ "$#" -gt 0 ]]; then
 fi
 
 sleep infinity
-'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "scripts\docker\openclaw-kasmvnc-entrypoint.sh") -Value $_ }
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "scripts\docker\openclaw-kasmvnc-entrypoint.sh") -Value $_ }
 
   @'
 #!/usr/bin/env bash
@@ -439,11 +418,11 @@ case "$action" in
     fi; exit 0 ;;
   *) exit 0 ;;
 esac
-'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $repoDir "scripts\docker\systemctl-shim.sh") -Value $_ }
+'@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "scripts\docker\systemctl-shim.sh") -Value $_ }
 }
 
 function Assert-GatewayRunning {
-  $cid = (& docker compose -f docker-compose.yml -f docker-compose.kasmvnc.yml ps -q openclaw-gateway | Select-Object -First 1)
+  $cid = (& docker compose -f docker-compose.yml ps -q openclaw-gateway | Select-Object -First 1)
   if ([string]::IsNullOrWhiteSpace($cid)) {
     throw "openclaw-gateway container not found after compose operation."
   }
@@ -453,15 +432,13 @@ function Assert-GatewayRunning {
   }
 }
 
-function Require-Repo {
-  $repoDir = Get-RepoDir
-  if (-not (Test-Path $repoDir)) {
-    throw "Repo not found: $repoDir"
+function Require-InstallDir {
+  if (-not (Test-Path $InstallDir)) {
+    throw "Install directory not found: $InstallDir. Run '.\openclaw_kasmvnc.ps1 -Command install' first."
   }
 }
 
 function Install-Command {
-  Assert-Command -Name "git"
   Assert-Command -Name "docker"
   try {
     docker compose version | Out-Null
@@ -481,37 +458,10 @@ function Install-Command {
     New-Item -ItemType Directory -Path $InstallDir | Out-Null
   }
 
-  $repoDir = Get-RepoDir
-  if (-not (Test-Path (Join-Path $repoDir ".git"))) {
-    git clone --branch $Branch --depth 1 $RepoUrl $repoDir
-  }
-  else {
-    Write-Host "Repo exists, updating to ${Branch}: $repoDir"
-    Push-Location $repoDir
-    try {
-      git fetch origin --tags
-      git checkout $Branch 2>$null
-      if ($LASTEXITCODE -ne 0) {
-        git checkout "tags/$Branch" -b "release-$Branch" 2>$null
-      }
-      # Only pull if on a branch (tags are immutable)
-      $symRef = git symbolic-ref -q HEAD 2>$null
-      if ($symRef) {
-        git pull --rebase origin $Branch 2>$null
-      }
-    }
-    finally {
-      Pop-Location
-    }
-  }
+  Ensure-BuildContext
 
-  Push-Location $repoDir
+  Push-Location $InstallDir
   try {
-    Ensure-KasmvncOverlay
-    if (-not (Test-Path ".env")) {
-      Copy-Item ".env.example" ".env"
-    }
-
     if (-not (Test-Path ".openclaw")) {
       New-Item -ItemType Directory -Path ".openclaw" | Out-Null
     }
@@ -542,7 +492,7 @@ function Install-Command {
 
   Write-Host ""
   Write-Host "Install complete."
-  Write-Host "Repo: $repoDir"
+  Write-Host "Directory: $InstallDir"
   Write-Host "WebChat: http://127.0.0.1:$GatewayPort/chat?session=main"
   Write-Host "Desktop: https://127.0.0.1:$HttpsPort"
   Write-Host "OPENCLAW_GATEWAY_TOKEN=$GatewayToken"
@@ -550,21 +500,20 @@ function Install-Command {
 }
 
 function Uninstall-Command {
-  $repoDir = Get-RepoDir
-  if (Test-Path $repoDir) {
-    Push-Location $repoDir
+  if (Test-Path $InstallDir) {
+    Push-Location $InstallDir
     try {
       if (Get-Command docker -ErrorAction SilentlyContinue) {
         Invoke-Compose -ComposeArgs @("down")
       }
-      Write-Host "Stopped services in: $repoDir"
+      Write-Host "Stopped services in: $InstallDir"
     }
     finally {
       Pop-Location
     }
   }
   else {
-    Write-Host "Repo directory not found: $repoDir"
+    Write-Host "Install directory not found: $InstallDir"
   }
 
   if ($Purge) {
@@ -580,10 +529,10 @@ function Uninstall-Command {
 }
 
 function Restart-Command {
-  Require-Repo
-  Push-Location (Get-RepoDir)
+  Require-InstallDir
+  Push-Location $InstallDir
   try {
-    Ensure-KasmvncOverlay
+    Ensure-BuildContext
     Invoke-Compose -ComposeArgs @("restart", "openclaw-gateway")
     Assert-GatewayRunning
   }
@@ -593,20 +542,12 @@ function Restart-Command {
 }
 
 function Upgrade-Command {
-  Require-Repo
-  Push-Location (Get-RepoDir)
+  Require-InstallDir
+  Push-Location $InstallDir
   try {
-    git fetch origin --tags
-    git checkout $Branch 2>$null
-    if ($LASTEXITCODE -ne 0) {
-      git checkout "tags/$Branch" -b "release-$Branch" 2>$null
-    }
-    $symRef = git symbolic-ref -q HEAD 2>$null
-    if ($symRef) {
-      git pull --rebase origin $Branch 2>$null
-    }
-    Ensure-KasmvncOverlay
-    Invoke-Compose -ComposeArgs @("up", "-d", "--build", "openclaw-gateway")
+    Ensure-BuildContext
+    Invoke-Compose -ComposeArgs @("build", "--no-cache", "openclaw-gateway")
+    Invoke-Compose -ComposeArgs @("up", "-d", "openclaw-gateway")
     Assert-GatewayRunning
   }
   finally {
@@ -615,8 +556,8 @@ function Upgrade-Command {
 }
 
 function Status-Command {
-  Require-Repo
-  Push-Location (Get-RepoDir)
+  Require-InstallDir
+  Push-Location $InstallDir
   try {
     Invoke-Compose -ComposeArgs @("ps")
   }
@@ -626,8 +567,8 @@ function Status-Command {
 }
 
 function Logs-Command {
-  Require-Repo
-  Push-Location (Get-RepoDir)
+  Require-InstallDir
+  Push-Location $InstallDir
   try {
     Invoke-Compose -ComposeArgs @("logs", "--tail=$Tail", "openclaw-gateway")
   }
