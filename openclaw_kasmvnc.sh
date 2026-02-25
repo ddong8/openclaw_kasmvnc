@@ -66,14 +66,8 @@ assert_cmd() {
   fi
 }
 
-ensure_base_image() {
-  if docker image inspect openclaw:local >/dev/null 2>&1; then
-    echo "Using existing base image: openclaw:local"
-    return
-  fi
-  echo "Building base image: openclaw:local"
-  docker build -t openclaw:local .
-}
+# Base image build is no longer needed – OpenClaw is installed via npm
+# inside the KasmVNC Dockerfile directly.
 
 random_hex() {
   local bytes="${1:-32}"
@@ -181,13 +175,11 @@ services:
       context: .
       dockerfile: Dockerfile.kasmvnc
       args:
-        OPENCLAW_BASE_IMAGE: ${OPENCLAW_IMAGE:-openclaw:local}
         KASMVNC_VERSION: ${OPENCLAW_KASMVNC_VERSION:-1.3.0}
     image: ${OPENCLAW_KASMVNC_IMAGE:-openclaw:kasmvnc}
     command:
       [
-        "node",
-        "dist/index.js",
+        "openclaw",
         "gateway",
         "--allow-unconfigured",
         "--bind",
@@ -225,11 +217,12 @@ services:
 EOF
 
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
-ARG OPENCLAW_BASE_IMAGE=openclaw:local
-FROM ${OPENCLAW_BASE_IMAGE}
+FROM node:22-bookworm-slim
 
 USER root
-RUN rm -rf /app/.git
+
+# Install OpenClaw via npm (pre-built, includes correct version metadata)
+RUN npm install -g openclaw@latest
 ENV PATH="/opt/KasmVNC/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 ENV LANG=zh_CN.UTF-8
@@ -337,7 +330,7 @@ USER node
 EXPOSE 18789 18790 8443 8444
 
 ENTRYPOINT ["openclaw-kasmvnc-entrypoint"]
-CMD ["node", "dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
+CMD ["openclaw", "gateway", "--bind", "lan", "--port", "18789"]
 EOF
 
   cat >"$d/scripts/docker/openclaw-kasmvnc-entrypoint.sh" <<'EOF'
@@ -353,9 +346,9 @@ export QT_IM_MODULE="${QT_IM_MODULE:-ibus}"
 export XMODIFIERS="${XMODIFIERS:-@im=ibus}"
 export BROWSER="/usr/local/bin/chromium-kasm"
 
-# Resolve OpenClaw version from package.json for UI display
+# Resolve OpenClaw version for UI display (npm global install)
 if [ -z "${OPENCLAW_VERSION:-}" ]; then
-  OPENCLAW_VERSION=$(node -p "try{require('/app/package.json').version}catch(e){'dev'}" 2>/dev/null || echo "dev")
+  OPENCLAW_VERSION=$(node -p "try{require('openclaw/package.json').version}catch(e){'dev'}" 2>/dev/null || echo "dev")
   export OPENCLAW_VERSION
 fi
 
@@ -379,8 +372,7 @@ fi
 # Make `openclaw` command available in interactive shells
 if ! grep -q 'alias openclaw=' "${HOME}/.bashrc" 2>/dev/null; then
   cat >> "${HOME}/.bashrc" <<'EOALIAS'
-alias openclaw='node /app/dist/index.js'
-export PATH="/app/node_modules/.bin:${PATH}"
+# openclaw is already on PATH via npm global install
 EOALIAS
 fi
 
@@ -482,7 +474,7 @@ EOF
 # systemctl shim for Docker containers without systemd.
 # Translates OpenClaw gateway systemctl calls into process signals.
 set -euo pipefail
-find_gateway_pid() { pgrep -f "node.*dist/index\.js" 2>/dev/null | head -1 || true; }
+find_gateway_pid() { pgrep -f "node.*openclaw\.mjs\|node.*dist/index\.js" 2>/dev/null | head -1 || true; }
 args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
@@ -577,7 +569,6 @@ install_cmd() {
   (
     cd "$d"
     ensure_kasmvnc_overlay
-    ensure_base_image
     if [[ ! -f .env ]]; then
       cp .env.example .env
     fi
@@ -655,7 +646,6 @@ upgrade_cmd() {
       git pull --rebase origin "$BRANCH" 2>/dev/null || true
     fi
     ensure_kasmvnc_overlay
-    ensure_base_image
     compose_cmd up -d --build openclaw-gateway
     assert_gateway_running
   )
