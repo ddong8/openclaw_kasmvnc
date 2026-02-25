@@ -73,7 +73,7 @@ function Invoke-Compose {
 function Ensure-BuildContext {
   New-Item -ItemType Directory -Force -Path (Join-Path $InstallDir "scripts\docker") | Out-Null
 
-  @'
+  $composeYaml = @'
 services:
   openclaw-gateway:
     build:
@@ -125,10 +125,10 @@ services:
     privileged: true
     init: true
     restart: unless-stopped
-"@
+'@
 
   if ((Get-Command nvidia-smi -ErrorAction SilentlyContinue) -or ($env:OPENCLAW_ENABLE_GPU -eq "1")) {
-    $composeYaml += @"
+    $composeYaml += "`n" + @'
     deploy:
       resources:
         reservations:
@@ -136,7 +136,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-"@
+'@
   }
 
   $composeYaml | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "docker-compose.yml") -Value $_ }
@@ -536,7 +536,12 @@ function Uninstall-Command {
     Push-Location $InstallDir
     try {
       if (Get-Command docker -ErrorAction SilentlyContinue) {
-        Invoke-Compose -ComposeArgs @("down")
+        try {
+          Invoke-Compose -ComposeArgs @("down")
+        }
+        catch {
+          Write-Host "Ignoring compose down error: $_"
+        }
       }
       Write-Host "Stopped services in: $InstallDir"
     }
