@@ -312,9 +312,10 @@ RUN for f in /usr/share/kasmvnc/www/index.html /usr/share/kasmvnc/www/vnc.html; 
       fi; \
     done
 
+COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
-RUN sed -i 's/\r$//' /usr/local/bin/openclaw-kasmvnc-entrypoint \
-  && chmod +x /usr/local/bin/openclaw-kasmvnc-entrypoint \
+RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
+  && chmod +x /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
   && usermod -a -G ssl-cert node
 
 USER node
@@ -425,6 +426,43 @@ fi
 sleep infinity
 EOF
   chmod +x "$d/scripts/docker/openclaw-kasmvnc-entrypoint.sh"
+
+  cat >"$d/scripts/docker/systemctl-shim.sh" <<'SHIMEOF'
+#!/usr/bin/env bash
+# systemctl shim for Docker containers without systemd.
+# Translates OpenClaw gateway systemctl calls into process signals.
+set -euo pipefail
+find_gateway_pid() { pgrep -f "node.*dist/index\.js" 2>/dev/null | head -1 || true; }
+args=("$@"); action=""
+for a in "${args[@]}"; do
+  case "$a" in
+    status|restart|stop|is-enabled|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
+  esac
+done
+case "$action" in
+  status|daemon-reload|enable|disable) exit 0 ;;
+  restart)
+    pid=$(find_gateway_pid)
+    [[ -z "$pid" ]] && { echo "systemctl shim: gateway process not found" >&2; exit 1; }
+    kill -USR1 "$pid" 2>/dev/null; exit $? ;;
+  stop)
+    pid=$(find_gateway_pid)
+    [[ -z "$pid" ]] && exit 0
+    kill -TERM "$pid" 2>/dev/null; exit $? ;;
+  is-enabled)
+    pid=$(find_gateway_pid)
+    [[ -n "$pid" ]] && exit 0 || exit 1 ;;
+  show)
+    pid=$(find_gateway_pid)
+    if [[ -n "$pid" ]]; then
+      printf 'ActiveState=active\nSubState=running\nMainPID=%s\nExecMainStatus=0\nExecMainCode=exited\n' "$pid"
+    else
+      printf 'ActiveState=inactive\nSubState=dead\nMainPID=0\nExecMainStatus=0\nExecMainCode=exited\n'
+    fi; exit 0 ;;
+  *) exit 0 ;;
+esac
+SHIMEOF
+  chmod +x "$d/scripts/docker/systemctl-shim.sh"
 }
 
 assert_gateway_running() {

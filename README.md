@@ -245,6 +245,24 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install
 - **中文环境预配置**：容器内默认设置 `TZ=Asia/Shanghai`、`LANG=zh_CN.UTF-8`，已预装中文字体和 ibus-libpinyin 输入法。
 - **进程内重启**：启用 `OPENCLAW_NO_RESPAWN=1`，配置变更时 gateway 在进程内热重启，不重建容器，VNC 桌面会话保持。
 - **X11 状态清理**：入口脚本自动清理残留的 X11 锁文件和 VNC 进程，避免容器重启后黑屏。
+- **systemctl shim**：容器内没有 systemd，但内置了 `systemctl` shim 脚本，使 `openclaw gateway restart/stop/status` 等命令在容器内正常工作。
+
+### 在容器内管理 Gateway
+
+在 VNC 桌面的终端里，可以直接使用标准的 OpenClaw 命令：
+
+```bash
+# 重启 gateway（进程内热重启，VNC 不中断）
+openclaw gateway restart
+
+# 停止 gateway
+openclaw gateway stop
+
+# 查看 gateway 状态
+openclaw gateway status --probe
+```
+
+> 这些命令通过内置的 `systemctl` shim 实现，将 systemd 调用转换为进程信号（SIGUSR1 / SIGTERM），无需真正的 systemd。
 
 ## 常见问题（FAQ）
 
