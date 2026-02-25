@@ -189,6 +189,8 @@ RUN apt-get update \
     libglu1-mesa \
     libglx-mesa0 \
     locales \
+    procps \
+    sudo \
     tzdata \
     xfce4 \
     xfce4-terminal \
@@ -257,7 +259,8 @@ COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
   && chmod +x /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
-  && usermod -a -G ssl-cert node
+  && usermod -a -G ssl-cert node \
+  && echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 USER node
 
