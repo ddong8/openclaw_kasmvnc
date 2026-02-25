@@ -313,7 +313,16 @@ openclaw gateway status --probe
 说明：macOS Docker Desktop 使用 VirtioFS 自动处理文件权限映射，不需要 `chown`。
 脚本已针对 macOS 跳过此步骤，如使用旧脚本请升级到最新版。
 
-### 7. 日志太多不好看
+### 7. 升级部署后中文输入法依然不是默认首选？
+
+说明：系统预设桌面环境配置持久化存储在你的 `~/.config` 目录中。如果你是从旧版本升级，那么旧的输入法优先级可能已被强行写死，不会自动刷新。
+**解决方案**：
+进入 KasmVNC 桌面，打开终端模拟器直接执行以下清理命令，然后断开重连：
+```bash
+rm -rf ~/.config/dconf && rm -f /tmp/ibus-dconf-dump
+```
+
+### 8. 日志太多不好看
 
 建议使用：
 - `logs --tail 200`：只看最近日志

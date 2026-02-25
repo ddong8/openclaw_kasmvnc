@@ -356,6 +356,8 @@ use-system-keyboard-layout=false
 triggers=['<Control>space']
 EODCONF
 if command -v dconf >/dev/null 2>&1; then
+  rm -rf "${HOME}/.config/dconf" 2>/dev/null || true
+  mkdir -p "${HOME}/.config/dconf"
   dconf load / < /tmp/ibus-dconf-dump 2>/dev/null || true
 fi
 
