@@ -31,12 +31,12 @@ curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw_kasmvnc/main/opencl
 - `openclaw_kasmvnc.sh`：macOS/Linux 统一管理脚本
 - `openclaw_kasmvnc.ps1`：Windows 统一管理脚本
 
-说明：脚本会自动拉取官方 `openclaw` 源码（默认使用**最新发行版 tag**），并自动写入 KasmVNC 所需的
-`docker-compose.kasmvnc.yml`、`Dockerfile.kasmvnc` 和入口脚本，再执行容器构建与启动。
-脚本默认会复用已有 `openclaw:local` 镜像，只有本地不存在时才构建基础镜像。
+说明：脚本会自动生成 KasmVNC 所需的 `docker-compose.kasmvnc.yml`、`Dockerfile.kasmvnc` 和入口脚本，再执行容器构建与启动。
+构建过程中会通过 `npm install -g openclaw@latest` 将 OpenClaw 全局安装到容器内。
 
 两个脚本都支持以下子命令：
-- `install` — 克隆/拉取 + 配置 + 构建/启动容器
+- `install` — 配置 + 构建/启动容器
+
 - `uninstall` — 停止容器；加 `--purge` 删除安装目录
 - `restart` — 重启 openclaw-gateway 容器
 - `upgrade` — 拉取最新代码并重建/重启容器
@@ -115,7 +115,7 @@ chmod +x ./openclaw_kasmvnc.sh
 ./openclaw_kasmvnc.sh restart
 ```
 
-升级：
+升级（无缓存极速更新版本）：
 ```bash
 ./openclaw_kasmvnc.sh upgrade
 ```
@@ -158,7 +158,7 @@ chmod +x ./openclaw_kasmvnc.sh
 > **注意**：容器内已启用 `OPENCLAW_NO_RESPAWN=1`，配置变更时 gateway 会在进程内重启，
 > 而非重新启动容器，VNC 桌面会话不会中断。
 
-如果你修改的是镜像层相关内容（例如 Dockerfile、系统依赖、桌面组件），仅 `restart` 不够，需要执行 `upgrade` 触发重建镜像。
+如果你修改的是镜像配置（例如自定义了 Dockerfile、添加了新系统依赖）、或者是需要更新 `openclaw` 的 npm 版本，仅 `restart` 不够，需要执行 `upgrade` 触发重建（仅更新 npm 层，秒级完成）。
 
 ## 可选参数
 
@@ -167,8 +167,6 @@ chmod +x ./openclaw_kasmvnc.sh
 | 参数 | Windows (PS1) | macOS/Linux (sh) | 默认值 |
 |------|---------------|-------------------|--------|
 | 安装目录 | `-InstallDir` | `--install-dir` | `$HOME/openclaw-kasmvnc` |
-| 分支/标签 | `-Branch` | `--branch` | 最新发行版 tag（API 失败回退 `main`） |
-| 仓库 URL | `-RepoUrl` | `--repo-url` | `https://github.com/openclaw/openclaw.git` |
 | 网关端口 | `-GatewayPort` | `--gateway-port` | `18789` |
 | VNC HTTPS 端口 | `-HttpsPort` | `--https-port` | `8443` |
 | 网关 Token | `-GatewayToken` | `--gateway-token` | 自动生成 |
@@ -177,9 +175,7 @@ chmod +x ./openclaw_kasmvnc.sh
 | 日志行数 | `-Tail` | `--tail` | `200` |
 | 清除安装目录 | `-Purge` | `--purge` | 否 |
 
-> **分支/标签说明**：脚本默认通过 GitHub API 自动获取最新发行版 tag（如 `v2026.2.23`）。
-> 如果 API 不可用（如无网络），会回退到 `main` 分支。
-> 你也可以手动指定：`--branch main`（跟踪开发分支）或 `--branch v2026.2.20`（锁定特定版本）。
+> **说明**：脚本默认会直接通过 npm 获取 `latest` 版本的 openclaw。升级时直接运行 `upgrade` 命令即可。
 
 示例（Windows）：
 ```powershell
@@ -198,10 +194,6 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 `
   --https-port 8443
 ```
 
-指定使用 main 分支（开发版）：
-```bash
-./openclaw_kasmvnc.sh install --branch main
-```
 
 ### 使用系统代理
 
