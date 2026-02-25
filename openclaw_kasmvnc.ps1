@@ -83,6 +83,8 @@ services:
       dockerfile: Dockerfile.kasmvnc
       args:
         KASMVNC_VERSION: ${OPENCLAW_KASMVNC_VERSION:-1.3.0}
+        HTTP_PROXY: ${OPENCLAW_HTTP_PROXY:-}
+        HTTPS_PROXY: ${OPENCLAW_HTTP_PROXY:-}
     image: ${OPENCLAW_KASMVNC_IMAGE:-openclaw:kasmvnc}
     command:
       [
@@ -141,9 +143,16 @@ USER root
 # Install git (required by some npm lifecycle scripts)
 RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
 
+# Accept proxy build arguments
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+
 # Install OpenClaw via npm (pre-built, includes correct version metadata)
-# --omit=optional: skip @discordjs/opus which requires git clone from GitHub
-RUN npm install -g --omit=optional openclaw@latest
+# Configure npm registry and force git to use HTTPS, preserving optional dependencies
+RUN npm config set registry https://registry.npmmirror.com \
+ && git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global url."https://".insteadOf "git://" \
+ && npm install -g openclaw@latest
 ENV PATH="/opt/KasmVNC/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 ENV LANG=zh_CN.UTF-8
