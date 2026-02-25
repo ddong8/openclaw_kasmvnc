@@ -374,6 +374,8 @@ if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
   export DBUS_SESSION_BUS_ADDRESS
 fi
 if command -v dconf >/dev/null 2>&1 && [ -f /tmp/ibus-dconf-dump ]; then
+  rm -rf "${HOME}/.config/dconf" 2>/dev/null || true
+  mkdir -p "${HOME}/.config/dconf"
   dconf load / < /tmp/ibus-dconf-dump 2>/dev/null || true
 fi
 if command -v ibus-daemon >/dev/null 2>&1; then
