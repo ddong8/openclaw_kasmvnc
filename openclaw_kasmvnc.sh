@@ -400,7 +400,7 @@ EOH
 mkdir -p "${HOME}/.config/dconf"
 cat > /tmp/ibus-dconf-dump <<'EODCONF'
 [desktop/ibus/general]
-preload-engines=['xkb:us::eng','libpinyin']
+preload-engines=['libpinyin','xkb:us::eng']
 use-system-keyboard-layout=false
 
 [desktop/ibus/general/hotkey]
