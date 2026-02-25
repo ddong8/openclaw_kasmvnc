@@ -221,6 +221,7 @@ ARG OPENCLAW_BASE_IMAGE=openclaw:local
 FROM ${OPENCLAW_BASE_IMAGE}
 
 USER root
+RUN rm -rf /app/.git
 ENV PATH="/opt/KasmVNC/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 ENV LANG=zh_CN.UTF-8
