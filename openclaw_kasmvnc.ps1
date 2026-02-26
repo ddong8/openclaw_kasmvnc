@@ -446,6 +446,16 @@ DISPLAY_NUM="${DISPLAY#:}"
 rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
 rm -f "${HOME}/.vnc/"*"${DISPLAY}"*.pid 2>/dev/null || true
 
+# Override KasmVNC DLP clipboard config: remove "chromium/x-web-custom-data" MIME type
+# so that Xvnc cmdline does not contain "chromium" (prevents pkill -f chromium from killing Xvnc)
+sudo sh -c 'cat > /etc/kasmvnc/kasmvnc.yaml' <<'KASMCFG'
+data_loss_prevention:
+  clipboard:
+    allow_mimetypes:
+      - text/html
+      - image/png
+KASMCFG
+
 vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" >/tmp/openclaw-kasmvnc.log 2>&1 || true
 
 if ! pgrep -u "$(id -u)" -f "xfce4-session" >/dev/null 2>&1; then
