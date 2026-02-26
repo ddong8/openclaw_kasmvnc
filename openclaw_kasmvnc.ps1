@@ -1,18 +1,40 @@
+# ============================================================================
+# openclaw_kasmvnc.ps1 — OpenClaw + KasmVNC 一键部署管理脚本（Windows）
+#
+# 功能概述：
+#   自动生成 Dockerfile、docker-compose.yml、KasmVNC 启动脚本和 systemctl shim，
+#   然后通过 Docker Compose 构建并运行容器。容器内集成了 XFCE 桌面、Chromium 浏览器、
+#   Fcitx5 中文输入法（雾凇拼音）以及 OpenClaw 网关服务。
+#
+# 支持的子命令：
+#   install   — 初始化配置 + 构建镜像 + 启动容器
+#   uninstall — 停止容器（可选 -Purge 删除安装目录）
+#   restart   — 重启 openclaw-gateway 容器
+#   upgrade   — 在运行中的容器内升级 OpenClaw npm 包并热重启网关
+#   status    — 查看 Compose 服务状态
+#   logs      — 查看容器日志
+# ============================================================================
+
+# ── 脚本参数定义 ──────────────────────────────────────────────────────────────
 param(
   [ValidateSet("install", "uninstall", "restart", "upgrade", "status", "logs")]
-  [string]$Command = "install",
-  [string]$InstallDir = "$HOME\openclaw-kasmvnc",
-  [string]$GatewayToken = "",
-  [string]$KasmPassword = "",
-  [string]$HttpsPort = "8443",
-  [string]$GatewayPort = "18789",
-  [int]$Tail = 200,
-  [string]$Proxy = "",
-  [switch]$Purge
+  [string]$Command = "install",           # 子命令，默认 install
+  [string]$InstallDir = "$HOME\openclaw-kasmvnc",  # 安装目录
+  [string]$GatewayToken = "",             # 网关访问令牌（留空则自动生成）
+  [string]$KasmPassword = "",             # KasmVNC 登录密码（留空则自动生成）
+  [string]$HttpsPort = "8443",            # KasmVNC HTTPS 宿主机端口
+  [string]$GatewayPort = "18789",         # OpenClaw 网关宿主机端口
+  [int]$Tail = 200,                       # logs 命令默认显示行数
+  [string]$Proxy = "",                    # 容器内 HTTP 代理地址
+  [switch]$Purge                          # 卸载时是否删除安装目录
 )
 
+# 遇到错误立即终止脚本执行
 $ErrorActionPreference = "Stop"
 
+# ── 工具函数 ─────────────────────────────────────────────────────────────────
+
+# 检查系统命令是否存在，不存在则抛出异常
 function Assert-Command {
   param([string]$Name)
   if (-not (Get-Command $Name -ErrorAction SilentlyContinue)) {
@@ -20,6 +42,7 @@ function Assert-Command {
   }
 }
 
+# 以 Unix 换行符（LF）写入文件，避免 Windows 的 CRLF 导致容器内脚本出错
 function Set-UnixContent {
   param(
     [string]$Path,
@@ -29,6 +52,7 @@ function Set-UnixContent {
   [System.IO.File]::WriteAllText($Path, $lf, [System.Text.UTF8Encoding]::new($false))
 }
 
+# 生成指定字节数的随机十六进制字符串（用于 token / 密码自动生成）
 function New-RandomHex {
   param([int]$Bytes = 32)
   $buf = New-Object byte[] $Bytes
@@ -37,6 +61,8 @@ function New-RandomHex {
 }
 
 
+# 在 .env 文件中插入或更新一行 KEY=VALUE
+# 如果 key 已存在则原地替换，否则追加到文件末尾
 function Upsert-EnvLine {
   param(
     [string]$FilePath,
@@ -62,6 +88,7 @@ function Upsert-EnvLine {
   }
 }
 
+# 封装 docker compose 调用，统一指定 compose 文件，失败时抛出异常
 function Invoke-Compose {
   param([Parameter(Mandatory = $true)][string[]]$ComposeArgs)
   & docker compose -f docker-compose.yml @ComposeArgs
@@ -70,9 +97,17 @@ function Invoke-Compose {
   }
 }
 
+# ── 构建上下文生成 ────────────────────────────────────────────────────────────
+# 在安装目录下生成所有 Docker 构建所需的文件：
+#   - docker-compose.yml    — Compose 服务定义
+#   - Dockerfile.kasmvnc    — 镜像构建指令
+#   - scripts/docker/kasmvnc-startup.sh  — 容器入口脚本（启动 VNC + 桌面 + 输入法）
+#   - scripts/docker/systemctl-shim.sh   — systemctl 模拟脚本（容器内无 systemd）
 function Ensure-BuildContext {
   New-Item -ItemType Directory -Force -Path (Join-Path $InstallDir "scripts\docker") | Out-Null
 
+  # ── 生成 docker-compose.yml ──
+  # 定义 openclaw-gateway 服务：构建参数、环境变量、端口映射、卷挂载等
   $composeYaml = @'
 services:
   openclaw-gateway:
@@ -127,6 +162,7 @@ services:
     restart: unless-stopped
 '@
 
+  # 动态检测宿主机是否有 NVIDIA GPU，如果有则自动注入 GPU 支持配置
   if ((Get-Command nvidia-smi -ErrorAction SilentlyContinue) -or ($env:OPENCLAW_ENABLE_GPU -eq "1")) {
     $composeYaml += "`n" + @'
     deploy:
@@ -141,6 +177,10 @@ services:
 
   $composeYaml | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "docker-compose.yml") -Value $_ }
 
+  # ── 生成 Dockerfile.kasmvnc ──
+  # 基于 node:22-bookworm，安装 OpenClaw、KasmVNC、XFCE 桌面、Chromium、
+  # Fcitx5 输入法、Docker CE（DinD 支持）等全部依赖
+  # 注意：Dockerfile 内容与 .sh 版本完全一致，两个脚本需同步维护
   @'
 FROM node:22-bookworm
 
@@ -300,9 +340,11 @@ ENTRYPOINT ["kasmvnc-startup"]
 CMD ["openclaw", "gateway", "--bind", "lan", "--port", "18789"]
 '@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "Dockerfile.kasmvnc") -Value $_ }
 
+  # ── 生成 kasmvnc-startup.sh（容器入口脚本）──
+  # 容器启动时执行：初始化环境变量 → 启动 Docker 守护进程（DinD）→ 配置输入法 →
+  # 清理残留 VNC 状态 → 覆写 KasmVNC 剪贴板配置 → 启动 VNC 服务器 + XFCE 桌面 →
+  # 最后执行 CMD 传入的命令（通常是 openclaw gateway）并 sleep infinity 保持容器存活
   @'
-#!/usr/bin/env bash
-set -euo pipefail
 
 export HOME="${HOME:-/home/node}"
 export USER="${USER:-node}"
@@ -473,6 +515,15 @@ fi
 sleep infinity
 '@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "scripts\docker\kasmvnc-startup.sh") -Value $_ }
 
+  # ── 生成 systemctl-shim.sh（systemctl 模拟脚本）──
+  # 容器内没有 systemd，但 openclaw CLI 依赖 systemctl 管理网关服务。
+  # 此 shim 拦截所有 systemctl 调用，将其转换为进程信号操作：
+  #   - restart → 发送 SIGUSR1 触发热重启（同 PID，不断端口）
+  #   - stop    → 发送 SIGTERM 优雅停止
+  #   - start   → 通过 nohup 后台启动网关进程
+  #   - status  → 始终返回 0（openclaw 用此判断 systemd 是否可用）
+  #   - is-enabled → 通过 marker 文件跟踪 install/uninstall 状态
+  # 进程识别使用 lsof 端口检测，因为 Node.js process.title 会覆盖整个 cmdline
   @'
 #!/usr/bin/env bash
 # systemctl shim for Docker containers without systemd.
@@ -574,6 +625,8 @@ esac
 '@ | ForEach-Object { Set-UnixContent -Path (Join-Path $InstallDir "scripts\docker\systemctl-shim.sh") -Value $_ }
 }
 
+# ── 容器健康检查 ──────────────────────────────────────────────────────────────
+# 验证 openclaw-gateway 容器正在运行，且容器内的网关进程已就绪
 function Assert-GatewayRunning {
   $cid = (& docker compose -f docker-compose.yml ps -q openclaw-gateway | Select-Object -First 1)
   if ([string]::IsNullOrWhiteSpace($cid)) {
@@ -592,12 +645,16 @@ function Assert-GatewayRunning {
   throw "Container is running but gateway process is not responding (container: $cid)."
 }
 
+# 检查安装目录是否存在，不存在则提示用户先执行 install
 function Require-InstallDir {
   if (-not (Test-Path $InstallDir)) {
     throw "Install directory not found: $InstallDir. Run '.\openclaw_kasmvnc.ps1 -Command install' first."
   }
 }
 
+# ── install 命令 ──────────────────────────────────────────────────────────────
+# 完整安装流程：检查依赖 → 生成 token/密码 → 创建安装目录 → 生成构建文件 →
+# 写入 .env 配置 → docker compose up --build → 验证网关就绪
 function Install-Command {
   Assert-Command -Name "docker"
   try {
@@ -659,6 +716,8 @@ function Install-Command {
   Write-Host "OPENCLAW_KASMVNC_PASSWORD=$KasmPassword"
 }
 
+# ── uninstall 命令 ────────────────────────────────────────────────────────────
+# 停止并移除容器；如果指定了 -Purge 则同时删除安装目录
 function Uninstall-Command {
   if (Test-Path $InstallDir) {
     Push-Location $InstallDir
@@ -693,6 +752,8 @@ function Uninstall-Command {
   }
 }
 
+# ── restart 命令 ──────────────────────────────────────────────────────────────
+# 重启 openclaw-gateway 容器
 function Restart-Command {
   Require-InstallDir
   Push-Location $InstallDir
@@ -706,6 +767,8 @@ function Restart-Command {
   }
 }
 
+# ── upgrade 命令 ──────────────────────────────────────────────────────────────
+# 在运行中的容器内执行 npm 升级 openclaw 包，然后热重启网关进程
 function Upgrade-Command {
   Require-InstallDir
   Push-Location $InstallDir
@@ -729,6 +792,8 @@ function Upgrade-Command {
   }
 }
 
+# ── status 命令 ───────────────────────────────────────────────────────────────
+# 显示 docker compose 服务状态
 function Status-Command {
   Require-InstallDir
   Push-Location $InstallDir
@@ -740,6 +805,8 @@ function Status-Command {
   }
 }
 
+# ── logs 命令 ─────────────────────────────────────────────────────────────────
+# 显示容器日志，默认最近 200 行
 function Logs-Command {
   Require-InstallDir
   Push-Location $InstallDir
@@ -751,6 +818,7 @@ function Logs-Command {
   }
 }
 
+# ── 主入口：根据子命令分发到对应的函数 ────────────────────────────────────────
 switch ($Command) {
   "install" { Install-Command; break }
   "uninstall" { Uninstall-Command; break }

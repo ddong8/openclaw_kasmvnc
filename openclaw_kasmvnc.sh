@@ -1,20 +1,38 @@
 #!/usr/bin/env bash
+# ============================================================================
+# openclaw_kasmvnc.sh — OpenClaw + KasmVNC 一键部署管理脚本（macOS / Linux）
+#
+# 功能概述：
+#   自动生成 Dockerfile、docker-compose.yml、KasmVNC 启动脚本和 systemctl shim，
+#   然后通过 Docker Compose 构建并运行容器。容器内集成了 XFCE 桌面、Chromium 浏览器、
+#   Fcitx5 中文输入法（雾凇拼音）以及 OpenClaw 网关服务。
+#
+# 支持的子命令：
+#   install   — 初始化配置 + 构建镜像 + 启动容器
+#   uninstall — 停止容器（可选 --purge 删除安装目录）
+#   restart   — 重启 openclaw-gateway 容器
+#   upgrade   — 在运行中的容器内升级 OpenClaw npm 包并热重启网关
+#   status    — 查看 Compose 服务状态
+#   logs      — 查看容器日志
+# ============================================================================
 set -euo pipefail
 
-COMMAND="${1:-install}"
+# ── 全局默认参数 ──────────────────────────────────────────────────────────────
+COMMAND="${1:-install}"          # 子命令，默认 install
 if [[ $# -gt 0 ]]; then
   shift
 fi
 
-INSTALL_DIR="${INSTALL_DIR:-$HOME/openclaw-kasmvnc}"
-GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"
-KASM_PASSWORD="${KASM_PASSWORD:-}"
-HTTPS_PORT="${HTTPS_PORT:-8443}"
-GATEWAY_PORT="${GATEWAY_PORT:-18789}"
-PURGE=0
-TAIL_LINES="${TAIL_LINES:-200}"
-HTTP_PROXY_URL="${HTTP_PROXY_URL:-}"
+INSTALL_DIR="${INSTALL_DIR:-$HOME/openclaw-kasmvnc}"  # 安装目录
+GATEWAY_TOKEN="${GATEWAY_TOKEN:-}"                     # 网关访问令牌（留空则自动生成）
+KASM_PASSWORD="${KASM_PASSWORD:-}"                      # KasmVNC 登录密码（留空则自动生成）
+HTTPS_PORT="${HTTPS_PORT:-8443}"                        # KasmVNC HTTPS 宿主机端口
+GATEWAY_PORT="${GATEWAY_PORT:-18789}"                   # OpenClaw 网关宿主机端口
+PURGE=0                                                # 卸载时是否删除安装目录
+TAIL_LINES="${TAIL_LINES:-200}"                        # logs 命令默认显示行数
+HTTP_PROXY_URL="${HTTP_PROXY_URL:-}"                    # 容器内 HTTP 代理地址
 
+# ── 帮助信息 ─────────────────────────────────────────────────────────────────
 usage() {
   cat <<'EOF'
 Usage:
@@ -41,6 +59,9 @@ Options:
 EOF
 }
 
+# ── 工具函数 ─────────────────────────────────────────────────────────────────
+
+# 检查系统命令是否存在，不存在则报错退出
 assert_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
     echo "Missing command: $1" >&2
@@ -49,6 +70,8 @@ assert_cmd() {
 }
 
 
+# 生成指定字节数的随机十六进制字符串（用于 token / 密码自动生成）
+# 优先使用 openssl，不可用时回退到 /dev/urandom
 random_hex() {
   local bytes="${1:-32}"
   if command -v openssl >/dev/null 2>&1; then
@@ -58,6 +81,8 @@ random_hex() {
   fi
 }
 
+# 在 .env 文件中插入或更新一行 KEY=VALUE
+# 如果 key 已存在则原地替换，否则追加到文件末尾
 upsert_env_line() {
   local file="$1"
   local key="$2"
@@ -74,6 +99,7 @@ upsert_env_line() {
   fi
 }
 
+# ── 命令行参数解析 ────────────────────────────────────────────────────────────
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -122,14 +148,23 @@ parse_args() {
   done
 }
 
+# 封装 docker compose 调用，统一指定 compose 文件
 compose_cmd() {
   docker compose -f docker-compose.yml "$@"
 }
 
+# ── 构建上下文生成 ────────────────────────────────────────────────────────────
+# 在安装目录下生成所有 Docker 构建所需的文件：
+#   - docker-compose.yml    — Compose 服务定义
+#   - Dockerfile.kasmvnc    — 镜像构建指令
+#   - scripts/docker/kasmvnc-startup.sh  — 容器入口脚本（启动 VNC + 桌面 + 输入法）
+#   - scripts/docker/systemctl-shim.sh   — systemctl 模拟脚本（容器内无 systemd）
 ensure_build_context() {
   local d="$INSTALL_DIR"
   mkdir -p "$d/scripts/docker"
 
+  # ── 生成 docker-compose.yml ──
+  # 定义 openclaw-gateway 服务：构建参数、环境变量、端口映射、卷挂载等
   cat >"$d/docker-compose.yml" <<'EOF'
 services:
   openclaw-gateway:
@@ -184,7 +219,7 @@ services:
     restart: unless-stopped
 EOF
 
-  # 动态检测是否存在 nvidia-smi，如果存在则自动注入 GPU 支持配置
+  # 动态检测宿主机是否有 NVIDIA GPU，如果有则自动注入 GPU 支持配置
   if command -v nvidia-smi >/dev/null 2>&1 || [[ "${OPENCLAW_ENABLE_GPU:-0}" == "1" ]]; then
     cat >>"$d/docker-compose.yml" <<'EOF'
     deploy:
@@ -197,30 +232,32 @@ EOF
 EOF
   fi
 
+  # ── 生成 Dockerfile.kasmvnc ──
+  # 基于 node:22-bookworm，安装 OpenClaw、KasmVNC、XFCE 桌面、Chromium、
+  # Fcitx5 输入法、Docker CE（DinD 支持）等全部依赖
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
 FROM node:22-bookworm
 
 USER root
 
-# Remove dpkg exclusions so translation files (locales) are installed for full UI localization
+# 移除 dpkg 排除规则，确保翻译文件（locale）被完整安装，支持中文界面
 RUN rm -f /etc/dpkg/dpkg.cfg.d/docker && rm -f /etc/apt/apt.conf.d/docker-clean
 
-# Configure apt to use Tsinghua mirror for faster downloads in China
+# 将 apt 源替换为清华镜像，加速国内下载
 RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
  && sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
  && sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list 2>/dev/null || true \
  && sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list 2>/dev/null || true
 
-# Install git and ssh client (required by some npm lifecycle scripts and git dependencies)
+# 安装 git 和 ssh 客户端（部分 npm 包的生命周期脚本和 git 依赖需要）
 RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/*
 
-# Accept proxy build arguments
+# 接收构建时的代理参数
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 
-# Install OpenClaw via npm (pre-built, includes correct version metadata)
-# Configure npm registry and force git to use HTTPS, preserving optional dependencies
-# Disable SSL verification for git to prevent issues with proxies
+# 通过 npm 全局安装 OpenClaw
+# 配置 npm 使用淘宝镜像源，强制 git 使用 HTTPS 协议，禁用 SSL 验证以兼容代理环境
 ARG OPENC_CACHE_BUST=1
 RUN npm config set registry https://registry.npmmirror.com \
  && git config --global url."https://github.com/".insteadOf "git@github.com:" \
@@ -229,11 +266,13 @@ RUN npm config set registry https://registry.npmmirror.com \
  && git config --global http.sslVerify false \
  && npm install -g openclaw@latest \
  && chown -R node:node /usr/local/lib/node_modules /usr/local/bin
+# 将 KasmVNC 加入 PATH，设置中文环境变量和输入法框架
 ENV PATH="/opt/KasmVNC/bin:${PATH}"
 ENV TZ=Asia/Shanghai
 ENV LANG=zh_CN.UTF-8
 ENV LANGUAGE=zh_CN:zh
 ENV LC_ALL=zh_CN.UTF-8
+# Fcitx5 输入法环境变量（GTK/Qt/X11 三端都需要设置）
 ENV GTK_IM_MODULE=fcitx
 ENV QT_IM_MODULE=fcitx
 ENV XMODIFIERS=@im=fcitx
@@ -241,6 +280,14 @@ ENV XMODIFIERS=@im=fcitx
 ARG KASMVNC_VERSION=1.3.0
 ARG TARGETARCH
 
+# 安装桌面环境及所有运行时依赖：
+#   - chromium: 浏览器（OpenClaw 需要）
+#   - xfce4: 轻量级桌面环境
+#   - fcitx5 + fcitx5-rime: 中文输入法（雾凇拼音）
+#   - fonts-noto-cjk: 中日韩字体
+#   - lsof: systemctl shim 用于端口检测
+#   - procps: ps/pgrep 等进程工具
+#   - locales: 中文 locale 生成
 RUN apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -274,7 +321,7 @@ RUN apt-get update \
   && update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CE for Docker-in-Docker support using Aliyun mirror
+# 安装 Docker CE 实现容器内 Docker（DinD），使用阿里云镜像源
 RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.aliyun.com/docker-ce/linux/debian bookworm stable" \
      > /etc/apt/sources.list.d/docker.list \
@@ -283,9 +330,9 @@ RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dea
      docker-ce docker-ce-cli containerd.io docker-compose-plugin \
   && rm -rf /var/lib/apt/lists/*
 
+# 创建 chromium-kasm 包装脚本：以无沙箱模式启动 Chromium 并开启远程调试端口
+# 同时修改桌面快捷方式指向此包装脚本，并创建自定义 .desktop 文件
 RUN printf '%s\n' \
-  '#!/usr/bin/env bash' \
-  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --test-type --no-first-run --disable-background-networking --disable-sync --disable-default-apps --disable-component-update --disable-features=TranslateUI --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 "$@"' \
   > /usr/local/bin/chromium-kasm \
   && chmod +x /usr/local/bin/chromium-kasm \
   && sed -i 's|^Exec=/usr/bin/chromium %U|Exec=/usr/local/bin/chromium-kasm %U|' /usr/share/applications/chromium.desktop \
@@ -313,6 +360,7 @@ RUN printf '%s\n' \
     'Icon=chromium' \
     > /usr/share/xfce4/helpers/chromium-kasm.desktop
 
+# 根据目标架构（amd64/arm64）下载并安装对应版本的 KasmVNC .deb 包
 RUN set -eux; \
   case "${TARGETARCH}" in \
     amd64) pkg_arch="amd64" ;; \
@@ -328,7 +376,7 @@ RUN set -eux; \
   rm -rf /var/lib/apt/lists/*
 
 
-# Install Rime Ice (雾凇拼音) dictionary and configuration
+# 安装雾凇拼音（Rime Ice）词库和配置，默认中文模式（ascii_mode reset=0）
 RUN git clone --depth 1 https://github.com/iDvel/rime-ice.git /tmp/rime-ice \
   && mkdir -p /home/node/.local/share/fcitx5/rime \
   && cp -r /tmp/rime-ice/* /home/node/.local/share/fcitx5/rime/ \
@@ -339,6 +387,9 @@ RUN git clone --depth 1 https://github.com/iDvel/rime-ice.git /tmp/rime-ice \
   && chown -R node:node /home/node/.local \
   && rm -rf /tmp/rime-ice
 
+# 复制 systemctl shim 和 KasmVNC 启动脚本到容器内
+# 清理 Windows 换行符，设置可执行权限
+# 将 node 用户加入 ssl-cert 和 docker 组，配置免密 sudo
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
@@ -357,34 +408,42 @@ ENTRYPOINT ["kasmvnc-startup"]
 CMD ["openclaw", "gateway", "--bind", "lan", "--port", "18789"]
 EOF
 
+  # ── 生成 kasmvnc-startup.sh（容器入口脚本）──
+  # 容器启动时执行：初始化环境变量 → 启动 Docker 守护进程（DinD）→ 配置输入法 →
+  # 清理残留 VNC 状态 → 覆写 KasmVNC 剪贴板配置 → 启动 VNC 服务器 + XFCE 桌面 →
+  # 最后执行 CMD 传入的命令（通常是 openclaw gateway）并 sleep infinity 保持容器存活
   cat >"$d/scripts/docker/kasmvnc-startup.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ── 环境变量初始化 ──
 export HOME="${HOME:-/home/node}"
 export USER="${USER:-node}"
 export DISPLAY="${OPENCLAW_KASMVNC_DISPLAY:-:1}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/xdg-runtime}"
+# Fcitx5 输入法环境变量（GTK/Qt/X11 三端）
 export GTK_IM_MODULE="${GTK_IM_MODULE:-fcitx}"
 export QT_IM_MODULE="${QT_IM_MODULE:-fcitx}"
 export XMODIFIERS="${XMODIFIERS:-@im=fcitx}"
 export BROWSER="/usr/local/bin/chromium-kasm"
 
-# Resolve OpenClaw version for UI display (npm global install)
+# 获取 OpenClaw 版本号用于界面显示
 if [ -z "${OPENCLAW_VERSION:-}" ]; then
   OPENCLAW_VERSION=$(openclaw --version 2>/dev/null | head -n1 || echo "dev")
   export OPENCLAW_VERSION
 fi
 
+# KasmVNC 配置参数
 KASMVNC_USER="${OPENCLAW_KASMVNC_USER:-node}"
 KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
 RESOLUTION="${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}"
 DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
+# 创建 VNC 和 XDG 运行时目录
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
 chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"
 
-# Start Docker daemon in background for DinD support
+# 后台启动 Docker 守护进程（DinD 支持），等待 socket 就绪
 if command -v dockerd >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
   sudo nohup dockerd >/tmp/openclaw-dockerd.log 2>&1 &
   for i in $(seq 1 10); do
@@ -393,18 +452,20 @@ if command -v dockerd >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
   done
 fi
 
-# Ensure interactive shells call openclaw directly (no throttling alias)
+# 清理可能残留的 openclaw 别名（历史版本遗留）
 sed -i '/^alias openclaw=/d' "${HOME}/.bashrc" 2>/dev/null || true
 
-# Configure NPM registry
+# 配置 npm 使用淘宝镜像源
 cat > "${HOME}/.npmrc" <<'EONPMRC'
 registry=https://registry.npmmirror.com
 EONPMRC
 
+# ── 配置 XFCE 默认浏览器为 chromium-kasm ──
 mkdir -p "${HOME}/.config" "${HOME}/.config/xfce4"
 cat > "${HOME}/.config/xfce4/helpers.rc" <<'EOH'
 WebBrowser=chromium-kasm
 EOH
+# 配置 MIME 类型关联，使 http/https 链接默认用 chromium-kasm 打开
 cat > "${HOME}/.config/mimeapps.list" <<'EOH'
 [Default Applications]
 x-scheme-handler/http=chromium-kasm.desktop
@@ -413,14 +474,13 @@ text/html=chromium-kasm.desktop
 EOH
 mkdir -p "${HOME}/.config/autostart"
 
-# Register Fcitx5 for this user's X session
+# 注册 Fcitx5 为当前用户的 X 会话输入法
 cat > "${HOME}/.xinputrc" <<'EOH'
 run_im fcitx5
 EOH
 
-
-
-# Autostart: force-activate fcitx5 rime AFTER XFCE desktop is fully loaded
+# ── Fcitx5 自动激活 ──
+# 创建 XFCE 自启动项：等待桌面加载完成后，强制激活 Fcitx5 并切换到 Rime 输入法
 cat > "${HOME}/.config/autostart/fcitx5-activate-rime.desktop" <<'EOH'
 [Desktop Entry]
 Type=Application
@@ -431,7 +491,7 @@ OnlyShowIn=XFCE;
 X-GNOME-Autostart-enabled=true
 EOH
 
-# Configure Fcitx5 profile: set Rime as the default input method
+# 配置 Fcitx5 输入法列表：keyboard-us（英文）+ rime（中文），默认使用 rime
 mkdir -p "${HOME}/.config/fcitx5"
 cat > "${HOME}/.config/fcitx5/profile" <<'EOH'
 [Groups/0]
@@ -451,7 +511,7 @@ Layout=
 0=Default
 EOH
 
-# Force active state behavior
+# 强制 Fcitx5 默认激活中文输入，所有窗口共享输入状态
 cat > "${HOME}/.config/fcitx5/config" <<'EOH'
 [Behavior]
 ActiveByDefault=True
@@ -459,17 +519,20 @@ ShareInputState=All
 PreeditEnabledByDefault=True
 EOH
 
-# Ensure Rime custom config handles ascii_mode and is owned by node
+# 确保 Rime 自定义配置存在：默认中文模式（ascii_mode reset=0）
 mkdir -p "${HOME}/.local/share/fcitx5/rime"
 cat > "${HOME}/.local/share/fcitx5/rime/default.custom.yaml" <<'EOH'
 patch:
   "switches/@0/reset": 0
 EOH
 
+# 验证 VNC 用户是否存在，不存在则回退到 node
 if ! id -u "${KASMVNC_USER}" >/dev/null 2>&1; then
   KASMVNC_USER="node"
 fi
 
+# ── 生成 VNC 桌面启动脚本 xstartup ──
+# 启动 D-Bus 会话总线 → 启动 Fcitx5 输入法守护进程 → 启动 XFCE4 桌面
 cat > "${HOME}/.vnc/xstartup" <<'EOH'
 #!/usr/bin/env bash
 unset SESSION_MANAGER
@@ -485,16 +548,18 @@ exec startxfce4
 EOH
 chmod +x "${HOME}/.vnc/xstartup"
 
+# 使用 KasmVNC 的桌面环境选择器注册 XFCE
 if command -v /usr/lib/kasmvncserver/select-de.sh >/dev/null 2>&1; then
   /usr/lib/kasmvncserver/select-de.sh -y -s XFCE >/tmp/openclaw-kasmvnc-selectde.log 2>&1 || true
 fi
 
+# 设置 VNC 登录密码
 if [[ -n "${KASMVNC_PASSWORD}" ]]; then
   printf '%s\n%s\n' "${KASMVNC_PASSWORD}" "${KASMVNC_PASSWORD}" \
     | vncpasswd -u "${KASMVNC_USER}" -w -r >/dev/null || true
 fi
 
-# Clean up stale VNC/X11 state from previous container runs
+# ── 清理残留的 VNC/X11 状态（防止容器重启后黑屏）──
 if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
@@ -503,8 +568,9 @@ DISPLAY_NUM="${DISPLAY#:}"
 rm -f "/tmp/.X${DISPLAY_NUM}-lock" "/tmp/.X11-unix/X${DISPLAY_NUM}"
 rm -f "${HOME}/.vnc/"*"${DISPLAY}"*.pid 2>/dev/null || true
 
-# Override KasmVNC DLP clipboard config: remove "chromium/x-web-custom-data" MIME type
-# so that Xvnc cmdline does not contain "chromium" (prevents pkill -f chromium from killing Xvnc)
+# ── 覆写 KasmVNC 剪贴板配置 ──
+# 移除默认的 chromium/x-web-custom-data MIME 类型，使 Xvnc 命令行不含 "chromium"
+# 这样 pkill -f chromium 不会误杀 VNC 服务进程
 sudo sh -c 'cat > /etc/kasmvnc/kasmvnc.yaml' <<'KASMCFG'
 data_loss_prevention:
   clipboard:
@@ -513,37 +579,52 @@ data_loss_prevention:
       - image/png
 KASMCFG
 
+# ── 启动 VNC 服务器 ──
 vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" >/tmp/openclaw-kasmvnc.log 2>&1 || true
 
+# 如果 XFCE 会话未自动启动，手动拉起（兜底机制）
 if ! pgrep -u "$(id -u)" -f "xfce4-session" >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" nohup sh "${HOME}/.vnc/xstartup" >/tmp/openclaw-xfce-autostart.log 2>&1 &
 fi
 
+# 设置系统默认浏览器为 chromium-kasm
 if command -v xdg-settings >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" xdg-settings set default-web-browser chromium-kasm.desktop >/dev/null 2>&1 || true
 fi
 
+# 执行 CMD 传入的命令（通常是 openclaw gateway），以后台方式运行
 if [[ "$#" -gt 0 ]]; then
   "$@" &
 fi
 
+# 保持容器存活（入口进程不退出，VNC 桌面会话才能持续）
 sleep infinity
 EOF
   chmod +x "$d/scripts/docker/kasmvnc-startup.sh"
 
+  # ── 生成 systemctl-shim.sh（systemctl 模拟脚本）──
+  # 容器内没有 systemd，但 openclaw CLI 依赖 systemctl 管理网关服务。
+  # 此 shim 拦截所有 systemctl 调用，将其转换为进程信号操作：
+  #   - restart → 发送 SIGUSR1 触发热重启（同 PID，不断端口）
+  #   - stop    → 发送 SIGTERM 优雅停止
+  #   - start   → 通过 nohup 后台启动网关进程
+  #   - status  → 始终返回 0（openclaw 用此判断 systemd 是否可用）
+  #   - is-enabled → 通过 marker 文件跟踪 install/uninstall 状态
+  # 进程识别使用 lsof 端口检测，因为 Node.js process.title 会覆盖整个 cmdline
   cat >"$d/scripts/docker/systemctl-shim.sh" <<'SHIMEOF'
 #!/usr/bin/env bash
-# systemctl shim for Docker containers without systemd.
-# Translates OpenClaw gateway systemctl calls into process signals.
+# systemctl shim — 容器内 systemd 替代方案
+# 将 openclaw CLI 发出的 systemctl 调用转换为进程信号操作
 set -euo pipefail
 
+# 服务禁用标记文件（用于跟踪 install/uninstall 状态）
 DISABLED_MARKER="/tmp/openclaw-gateway.disabled"
 
+# 查找网关进程 PID
+# 使用 lsof 检测监听端口的进程，这是唯一可靠的方法：
+# Node.js 的 process.title 会覆盖整个 /proc/PID/cmdline，
+# 导致服务进程和 CLI 进程的命令行完全相同，无法通过 pgrep 区分
 find_gateway_pid() {
-  local pid
-  # Find the process actually listening on the gateway port.
-  # This is the only reliable method because Node.js process.title overwrites
-  # the entire /proc/PID/cmdline, making server and CLI processes indistinguishable.
   pid="$(lsof -i :${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789} -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
   if [[ -n "$pid" && "$pid" != "1" ]]; then
     echo "$pid"
@@ -552,6 +633,9 @@ find_gateway_pid() {
   return 1
 }
 
+# 启动网关进程（如果尚未运行）
+# 优先使用 openclaw CLI，回退到 openclaw-gateway 二进制
+# 启动后轮询最多 15 秒等待端口就绪
 start_gateway() {
   local pid internal_port
   internal_port="${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789}"
@@ -574,43 +658,51 @@ start_gateway() {
   return 1
 }
 
+# ── 解析命令行参数，提取 systemctl 动作 ──
 args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
-    --version) echo "systemd 252 (shim)"; exit 0 ;;
+    --version) echo "systemd 252 (shim)"; exit 0 ;;  # 伪装版本号
     status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
   esac
 done
 
+# ── 根据动作执行对应操作 ──
 case "$action" in
   daemon-reload|status)
-    # Always return 0: openclaw CLI calls "systemctl --user status" to check
-    # if systemd is available. Non-zero = "systemctl unavailable" = all commands fail.
+    # 始终返回 0：openclaw CLI 调用 "systemctl --user status" 检测 systemd 是否可用
+    # 返回非零 = "systemctl 不可用" = 所有命令都会失败
     exit 0 ;;
   enable)
+    # 启用服务：删除禁用标记
     rm -f "$DISABLED_MARKER"; exit 0 ;;
   disable)
+    # 禁用服务：创建禁用标记
     touch "$DISABLED_MARKER"; exit 0 ;;
   is-enabled)
-    # Tracks install/uninstall state via marker file.
-    # Default (no marker) = enabled, so entrypoint-started gateway works without "openclaw gateway install".
+    # 通过 marker 文件跟踪 install/uninstall 状态
+    # 默认（无 marker）= 已启用，这样入口脚本启动的网关无需额外 "openclaw gateway install"
     [[ -f "$DISABLED_MARKER" ]] && exit 1
     exit 0 ;;
   is-active)
+    # 检查网关进程是否在运行
     pid=$(find_gateway_pid || true)
     [[ -n "$pid" ]] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
   start)
+    # 启动网关并清除禁用标记
     rm -f "$DISABLED_MARKER"
     start_gateway; exit $? ;;
   restart)
+    # 重启网关：清除禁用标记，如果进程在运行则发送 SIGUSR1 热重启
     rm -f "$DISABLED_MARKER"
     pid=$(find_gateway_pid || true)
     if [[ -z "$pid" ]]; then
       start_gateway; exit $?
     fi
-    # SIGUSR1 triggers in-place hot restart (same PID, no port drop)
+    # SIGUSR1 触发进程内热重启（同 PID，不断端口）
     kill -USR1 "$pid" 2>/dev/null; exit $? ;;
   stop)
+    # 停止网关：发送 SIGTERM，等待最多 15 秒，超时则 SIGKILL 强杀
     pid=$(find_gateway_pid || true)
     [[ -z "$pid" ]] && exit 0
     kill -TERM "$pid" 2>/dev/null || exit $?
@@ -621,18 +713,21 @@ case "$action" in
     kill -KILL "$pid" 2>/dev/null || true
     exit 0 ;;
   show)
+    # 输出 systemd 风格的属性信息（openclaw CLI 解析用）
     pid=$(find_gateway_pid || true)
     if [[ -n "$pid" ]]; then
       printf 'ActiveState=active\nSubState=running\nMainPID=%s\nExecMainStatus=0\nExecMainCode=exited\n' "$pid"
     else
       printf 'ActiveState=inactive\nSubState=dead\nMainPID=0\nExecMainStatus=0\nExecMainCode=exited\n'
     fi; exit 0 ;;
-  *) exit 0 ;;
+  *) exit 0 ;;  # 未识别的动作静默忽略
 esac
 SHIMEOF
   chmod +x "$d/scripts/docker/systemctl-shim.sh"
 }
 
+# ── 容器健康检查 ──────────────────────────────────────────────────────────────
+# 验证 openclaw-gateway 容器正在运行，且容器内的网关进程已就绪
 assert_gateway_running() {
   local cid
   cid="$(compose_cmd ps -q openclaw-gateway | head -n 1)"
@@ -657,6 +752,7 @@ assert_gateway_running() {
   exit 1
 }
 
+# 检查安装目录是否存在，不存在则提示用户先执行 install
 require_install_dir() {
   if [[ ! -d "$INSTALL_DIR" ]]; then
     echo "Install directory not found: $INSTALL_DIR" >&2
@@ -665,6 +761,9 @@ require_install_dir() {
   fi
 }
 
+# ── install 命令 ──────────────────────────────────────────────────────────────
+# 完整安装流程：检查依赖 → 生成 token/密码 → 创建安装目录 → 生成构建文件 →
+# 写入 .env 配置 → docker compose up --build → 验证网关就绪
 install_cmd() {
   assert_cmd docker
   if ! docker compose version >/dev/null 2>&1; then
@@ -714,6 +813,8 @@ install_cmd() {
   echo "OPENCLAW_KASMVNC_PASSWORD=${KASM_PASSWORD}"
 }
 
+# ── uninstall 命令 ────────────────────────────────────────────────────────────
+# 停止并移除容器；如果指定了 --purge 则同时删除安装目录
 uninstall_cmd() {
   if [[ -d "$INSTALL_DIR" ]]; then
     (
@@ -736,6 +837,8 @@ uninstall_cmd() {
   fi
 }
 
+# ── restart 命令 ──────────────────────────────────────────────────────────────
+# 重启 openclaw-gateway 容器（会触发入口脚本重新执行，VNC 桌面会短暂断连）
 restart_cmd() {
   require_install_dir
   (
@@ -746,6 +849,9 @@ restart_cmd() {
   )
 }
 
+# ── upgrade 命令 ──────────────────────────────────────────────────────────────
+# 在运行中的容器内执行 npm 升级 openclaw 包，然后热重启网关进程。
+# 不重建镜像，不中断 VNC 桌面会话。升级失败最多重试 3 次。
 upgrade_cmd() {
   require_install_dir
   (
@@ -783,6 +889,8 @@ upgrade_cmd() {
   )
 }
 
+# ── status 命令 ───────────────────────────────────────────────────────────────
+# 显示 docker compose 服务状态
 status_cmd() {
   require_install_dir
   (
@@ -791,6 +899,8 @@ status_cmd() {
   )
 }
 
+# ── logs 命令 ─────────────────────────────────────────────────────────────────
+# 显示容器日志，默认最近 200 行
 logs_cmd() {
   require_install_dir
   (
@@ -799,6 +909,7 @@ logs_cmd() {
   )
 }
 
+# ── 主入口：解析参数并分发到对应的命令函数 ────────────────────────────────────
 parse_args "$@"
 
 case "$COMMAND" in
