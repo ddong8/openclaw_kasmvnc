@@ -540,15 +540,32 @@ case "$action" in
       start_gateway; exit $?
     fi
     kill -USR1 "$pid" 2>/dev/null || { start_gateway; exit $?; }
-    sleep 1
-    pid="$(find_gateway_pid || true)"
-    [[ -n "$pid" ]] || { start_gateway; exit $?; }
-    exit 0 ;;
+    # Wait for old process to die or a new one to appear (up to 30s)
+    for _ in $(seq 1 120); do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        # Old process exited — need to start a fresh one
+        start_gateway; exit $?
+      fi
+      new_pid="$(find_gateway_pid || true)"
+      if [[ -n "$new_pid" && "$new_pid" != "$pid" ]]; then
+        # Hot restart spawned a new process
+        exit 0
+      fi
+      sleep 0.25
+    done
+    # Old process still alive after 30s — force kill and restart
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in $(seq 1 20); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.25
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    start_gateway; exit $? ;;
   stop)
-    pid=$(find_gateway_pid)
+    pid=$(find_gateway_pid || true)
     [[ -z "$pid" ]] && exit 0
     kill -TERM "$pid" 2>/dev/null || exit $?
-    for _ in $(seq 1 40); do
+    for _ in $(seq 1 120); do
       if ! kill -0 "$pid" 2>/dev/null; then
         exit 0
       fi
@@ -557,10 +574,10 @@ case "$action" in
     kill -KILL "$pid" 2>/dev/null || true
     exit 0 ;;
   is-enabled)
-    pid=$(find_gateway_pid)
+    pid=$(find_gateway_pid || true)
     [[ -n "$pid" ]] && exit 0 || exit 1 ;;
   show)
-    pid=$(find_gateway_pid)
+    pid=$(find_gateway_pid || true)
     if [[ -n "$pid" ]]; then
       printf 'ActiveState=active\nSubState=running\nMainPID=%s\nExecMainStatus=0\nExecMainCode=exited\n' "$pid"
     else
@@ -580,6 +597,13 @@ function Assert-GatewayRunning {
   if ($LASTEXITCODE -ne 0 -or "$running".Trim() -ne "true") {
     throw "openclaw-gateway is not running (container: $cid)."
   }
+  # Also verify the gateway process inside the container is alive
+  for ($i = 0; $i -lt 15; $i++) {
+    $result = & docker exec $cid sh -c "systemctl is-active openclaw-gateway" 2>$null
+    if ($LASTEXITCODE -eq 0) { return }
+    Start-Sleep -Seconds 2
+  }
+  throw "Container is running but gateway process is not responding (container: $cid)."
 }
 
 function Require-InstallDir {
@@ -710,7 +734,7 @@ function Upgrade-Command {
     Invoke-Compose -ComposeArgs @(
       "exec", "-T", "openclaw-gateway",
       "sh", "-lc",
-      "set -e; openclaw gateway restart >/tmp/openclaw-upgrade-restart.log 2>&1 || true"
+      "set -e; openclaw gateway restart >/tmp/openclaw-upgrade-restart.log 2>&1 || systemctl start openclaw-gateway; for i in `$(seq 1 30)`; do systemctl is-active openclaw-gateway >/dev/null 2>&1 && exit 0; sleep 1; done; echo 'Gateway process failed to start after upgrade' >&2; exit 1"
     )
     Assert-GatewayRunning
   }
