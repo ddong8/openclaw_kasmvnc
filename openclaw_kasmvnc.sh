@@ -330,6 +330,10 @@ RUN set -eux; \
 RUN git clone --depth 1 https://github.com/iDvel/rime-ice.git /tmp/rime-ice \
   && mkdir -p /home/node/.local/share/fcitx5/rime \
   && cp -r /tmp/rime-ice/* /home/node/.local/share/fcitx5/rime/ \
+  && printf '%s\n' \
+    'patch:' \
+    '  "switches/@0/reset": 0' \
+    > /home/node/.local/share/fcitx5/rime/default.custom.yaml \
   && chown -R node:node /home/node/.local \
   && rm -rf /tmp/rime-ice
 
