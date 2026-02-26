@@ -538,7 +538,30 @@ EOF
 # systemctl shim for Docker containers without systemd.
 # Translates OpenClaw gateway systemctl calls into process signals.
 set -euo pipefail
-find_gateway_pid() { pgrep -f "openclaw.*--port" 2>/dev/null | grep -vw 1 | head -1 || true; }
+find_gateway_pid() {
+  local pid cmd
+
+  # Preferred path for modern OpenClaw builds.
+  pid="$(pgrep -af "openclaw-gateway" 2>/dev/null | awk '$1 != 1 && $2 ~ /(^|\/)openclaw-gateway$/ {print $1; exit}' || true)"
+  if [[ -n "$pid" ]]; then
+    echo "$pid"
+    return 0
+  fi
+
+  # Backward-compatible fallback for legacy `openclaw gateway ...` process names.
+  while IFS= read -r pid; do
+    [[ -z "$pid" || "$pid" == "1" ]] && continue
+    cmd="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null || true)"
+    [[ -z "$cmd" ]] && continue
+    [[ "$cmd" == *"kasmvnc-startup"* ]] && continue
+    if [[ "$cmd" =~ (^|[[:space:]])openclaw([[:space:]]|$) ]] && [[ "$cmd" =~ (^|[[:space:]])gateway([[:space:]]|$) ]]; then
+      echo "$pid"
+      return 0
+    fi
+  done < <(pgrep -f "openclaw" 2>/dev/null || true)
+
+  return 1
+}
 args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
