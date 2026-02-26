@@ -491,22 +491,71 @@ find_gateway_pid() {
 
   return 1
 }
+
+start_gateway() {
+  local pid internal_port
+  internal_port="${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789}"
+  pid="$(find_gateway_pid || true)"
+  if [[ -n "$pid" ]]; then
+    return 0
+  fi
+
+  if command -v openclaw >/dev/null 2>&1; then
+    nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
+  elif command -v openclaw-gateway >/dev/null 2>&1; then
+    nohup openclaw-gateway >/tmp/openclaw-gateway.log 2>&1 &
+  else
+    echo "systemctl shim: cannot start gateway (openclaw CLI not found)" >&2
+    return 1
+  fi
+
+  for _ in $(seq 1 60); do
+    pid="$(find_gateway_pid || true)"
+    [[ -n "$pid" ]] && return 0
+    sleep 0.25
+  done
+
+  echo "systemctl shim: gateway failed to start" >&2
+  return 1
+}
 args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
-    status|restart|stop|is-enabled|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
+    status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
   esac
 done
 case "$action" in
-  status|daemon-reload|enable|disable) exit 0 ;;
+  daemon-reload|enable|disable) exit 0 ;;
+  status)
+    pid=$(find_gateway_pid || true)
+    [[ -n "$pid" ]] && exit 0 || exit 3 ;;
+  is-active)
+    pid=$(find_gateway_pid || true)
+    [[ -n "$pid" ]] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
+  start)
+    start_gateway; exit $? ;;
   restart)
-    pid=$(find_gateway_pid)
-    [[ -z "$pid" ]] && { echo "systemctl shim: gateway process not found" >&2; exit 1; }
-    kill -USR1 "$pid" 2>/dev/null; exit $? ;;
+    pid=$(find_gateway_pid || true)
+    if [[ -z "$pid" ]]; then
+      start_gateway; exit $?
+    fi
+    kill -USR1 "$pid" 2>/dev/null || { start_gateway; exit $?; }
+    sleep 1
+    pid="$(find_gateway_pid || true)"
+    [[ -n "$pid" ]] || { start_gateway; exit $?; }
+    exit 0 ;;
   stop)
     pid=$(find_gateway_pid)
     [[ -z "$pid" ]] && exit 0
-    kill -TERM "$pid" 2>/dev/null; exit $? ;;
+    kill -TERM "$pid" 2>/dev/null || exit $?
+    for _ in $(seq 1 40); do
+      if ! kill -0 "$pid" 2>/dev/null; then
+        exit 0
+      fi
+      sleep 0.25
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    exit 0 ;;
   is-enabled)
     pid=$(find_gateway_pid)
     [[ -n "$pid" ]] && exit 0 || exit 1 ;;
