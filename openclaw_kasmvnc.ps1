@@ -542,28 +542,8 @@ case "$action" in
     if [[ -z "$pid" ]]; then
       start_gateway; exit $?
     fi
-    kill -USR1 "$pid" 2>/dev/null || { start_gateway; exit $?; }
-    # Wait for old process to die or a new one to appear (up to 15s)
-    for _ in $(seq 1 60); do
-      if ! kill -0 "$pid" 2>/dev/null; then
-        # Old process exited — need to start a fresh one
-        start_gateway; exit $?
-      fi
-      new_pid="$(find_gateway_pid || true)"
-      if [[ -n "$new_pid" && "$new_pid" != "$pid" ]]; then
-        # Hot restart spawned a new process
-        exit 0
-      fi
-      sleep 0.25
-    done
-    # Old process still alive after 15s — force kill and restart
-    kill -TERM "$pid" 2>/dev/null || true
-    for _ in $(seq 1 20); do
-      kill -0 "$pid" 2>/dev/null || break
-      sleep 0.25
-    done
-    kill -KILL "$pid" 2>/dev/null || true
-    start_gateway; exit $? ;;
+    # SIGUSR1 triggers in-place hot restart (same PID, no port drop)
+    kill -USR1 "$pid" 2>/dev/null; exit $? ;;
   stop)
     pid=$(find_gateway_pid || true)
     [[ -z "$pid" ]] && exit 0
