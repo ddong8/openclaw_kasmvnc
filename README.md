@@ -237,7 +237,8 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install
 - **中文环境预配置**：容器内默认设置 `TZ=Asia/Shanghai`、`LANG=zh_CN.UTF-8`，已预装中文字体和 ibus-libpinyin 输入法。
 - **子进程无损重启**：配置变更时 gateway 自动通过分离的子进程（spawn detached）热拉起新版本，不重建容器主进程，VNC 桌面会话保持且能完美加载更新。
 - **X11 状态清理**：入口脚本自动清理残留的 X11 锁文件和 VNC 进程，避免容器重启后黑屏。
-- **systemctl shim**：容器内没有 systemd，但内置了 `systemctl` shim 脚本，使 `openclaw gateway restart/stop/status` 等命令在容器内正常工作。
+- **systemctl shim**：容器内没有 systemd，但内置了 `systemctl` shim 脚本，使 `openclaw gateway restart/stop/start/install/uninstall/update` 等全部命令在容器内正常工作。shim 通过 `lsof` 端口检测识别网关进程，避免 Node.js `process.title` 覆盖 cmdline 导致的误判。
+- **KasmVNC 剪贴板安全**：已移除 KasmVNC 默认剪贴板策略中的 `chromium/x-web-custom-data` MIME 类型，使 Xvnc 进程命令行不再包含 "chromium" 关键字，`pkill -f chromium` 不会误杀 VNC 服务。
 
 ### 在容器内管理 Gateway
 
@@ -258,9 +259,9 @@ openclaw gateway status --probe
 
 ## 避坑指南与已知问题
 
-### 1. 为什么使用 `pkill -f chromium` 会导致 VNC 断线？
-**原因：** KasmVNC 核心进程 `Xvnc` 的启动参数中含有剪贴板同步策略 (`chromium/x-web-custom-data`)。使用 `-f`（全文匹配）参数执行 `pkill` 时，会误将 VNC 服务进程一并清理，导致连接断开。
-**解决方案：** 必须使用精确匹配命令 `killall chromium` 或 `pkill -x chromium` 来清理残留的浏览器进程。请勿尝试将浏览器二进制文件改名重做软链接，这无法防范正则误杀，且易破坏环境一致性。
+### 1. `pkill -f chromium` 与 VNC 断线（已修复）
+**历史问题：** KasmVNC 默认的 `DLP_ClipTypes` 参数包含 `chromium/x-web-custom-data`，导致 `Xvnc` 进程命令行含有 "chromium" 关键字，`pkill -f chromium` 会误杀 VNC 服务。
+**当前状态：** 已通过覆写 `/etc/kasmvnc/kasmvnc.yaml` 移除该 MIME 类型，Xvnc 命令行不再包含 "chromium"。使用最新版本安装后，`pkill -f chromium` 不会影响 VNC。如果你仍在旧版本上遇到此问题，执行 `upgrade` 重建即可。
 
 ### 2. 执行 `openclaw update` 时 VNC 出现短暂闪断
 **原因：** 并非进程被误杀。`npm install` 在抽取全球或解压庞大依赖树时，瞬间会爆发极高的 CPU 和磁盘 I/O 占用。KasmVNC 强依赖服务器实时响应以维持 WebSocket 的心跳侦测，若系统底层资源被 npm 短暂榨干（如宿主机性能不足持续 3-5 秒无响应），前端浏览器便会抛出超时断连，表现为网页刷新闪断。
@@ -345,16 +346,11 @@ OpenClaw KasmVNC 已经内置了终极侦听切换机制。如遇此问题，请
 处理：
 > 说明：在 macOS M 系列等机器上，部分挂载路径可能会出现该提示。如果容器运行正常，该提示可安全忽略。安装脚本已经为您处理了目录权限初始化。
 
-### 7. 开发避坑：危险的 `pkill -f chromium`
+### 7. `pkill -f chromium` 误杀 VNC（已修复）
 
-现象：在终端中执行 `pkill -f chromium`，试图关闭所有的浏览器进程时，VNC 连接当场断开，甚至容器重启。
+此问题已在最新版本中修复。详见上方「避坑指南 #1」。
 
-原因：KasmVNC 的核心服务端呈现组件 `Xvnc` 在启动时，其命令行本身包含处理浏览器剪贴同步的参数：`-DLP_ClipTypes chromium/x-web-custom-data...`。由于带了 `-f`（匹配全文）参数的 `pkill` 是无差别的，这个命令会精准命中并**误杀真正维持你画面的 VNC 服务端**。
-
-正确做法：
-如果你需要清理卡死的浏览器进程，**请永远使用精确名称匹配**：
-- `killall chromium` （最推荐）
-- `pkill -x chromium` （严谨匹配名字）
+如果你仍在使用旧版镜像，可通过 `upgrade` 重建来获取修复。旧版的临时规避方式是使用 `killall chromium` 或 `pkill -x chromium`。
 
 ### 8. 为什么镜像使用 Chromium 而不是 Google Chrome？
 
