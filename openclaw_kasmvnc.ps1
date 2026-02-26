@@ -472,7 +472,8 @@ find_gateway_pid() {
   local pid cmd
 
   # Preferred path for modern OpenClaw builds.
-  pid="$(pgrep -af "openclaw-gateway" 2>/dev/null | awk '$1 != 1 && $2 ~ /(^|\/)openclaw-gateway$/ {print $1; exit}' || true)"
+  # Exclude CLI subcommands (start, stop, restart, etc.) — only match the server process.
+  pid="$(pgrep -af "openclaw-gateway" 2>/dev/null | awk '$1 != 1 && $2 ~ /(^|\/)openclaw-gateway$/ && $3 !~ /^(start|stop|restart|install|uninstall|status|update|upgrade)$/ {print $1; exit}' || true)"
   if [[ -n "$pid" ]]; then
     echo "$pid"
     return 0
@@ -505,7 +506,7 @@ start_gateway() {
   if command -v openclaw >/dev/null 2>&1; then
     nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   elif command -v openclaw-gateway >/dev/null 2>&1; then
-    nohup openclaw-gateway >/tmp/openclaw-gateway.log 2>&1 &
+    nohup openclaw-gateway --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   else
     echo "systemctl shim: cannot start gateway (openclaw CLI not found)" >&2
     return 1
