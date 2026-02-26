@@ -358,13 +358,24 @@ cat > "${HOME}/.xinputrc" <<'EOH'
 run_im fcitx5
 EOH
 
-# Fcitx5 XFCE autostart entry
+# Fcitx5 XFCE autostart entry (Daemon)
 cat > "${HOME}/.config/autostart/fcitx5.desktop" <<'EOH'
 [Desktop Entry]
 Type=Application
 Name=Fcitx5
 Exec=fcitx5 -d --replace
 Terminal=false
+X-GNOME-Autostart-enabled=true
+EOH
+
+# Autostart: force-activate fcitx5 rime AFTER XFCE desktop is fully loaded
+cat > "${HOME}/.config/autostart/fcitx5-activate-rime.desktop" <<'EOH'
+[Desktop Entry]
+Type=Application
+Name=Activate Fcitx5 Rime
+Exec=bash -c "sleep 4 && fcitx5-remote -s rime && fcitx5-remote -o"
+Terminal=false
+OnlyShowIn=XFCE;
 X-GNOME-Autostart-enabled=true
 EOH
 
