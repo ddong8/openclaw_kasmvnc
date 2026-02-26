@@ -278,6 +278,25 @@ openclaw gateway status --probe
 - 在浏览器里选择继续访问；
 - 或者自行反向代理并配置正式证书（如 Nginx/Caddy）。
 
+### 3. Fcitx5 (雾凇拼音) 默认未激活中文或功能异常
+
+现象：进入桌面后默认还是英文输入，或右下角键盘图标没有变成"拼"字，在新的浏览器/终端窗口中又会切回英文，甚至时好时坏。
+
+原因：
+这通常有两个原因：
+1. Linux 桌面启动时自带键盘防重置安全机制，且原本 Fcitx5 默认各窗口状态独立（ShareInputState=No）。
+2. 被挂载的旧卷（`.openclaw`）中的旧版配置文件或缓存存在冲突。
+
+处理：
+OpenClaw KasmVNC 已经内置了终极侦听切换机制。如遇此问题，请强制重置并应用最新机制：
+1. 在宿主机上执行 `upgrade` 使用最新脚本重建。
+2. 在 VNC 桌面的终端执行以下命令清除历史残留配置和冲突项：
+   ```bash
+   rm -rf ~/.config/fcitx5 ~/.local/share/fcitx5/rime/default.custom.yaml ~/.config/autostart/fcitx5.desktop
+   ```
+3. **必须彻底注销桌面**：点击桌面左下角菜单 -> Log Out -> 再次确认 Log Out。
+4. 页面刷新后重新进入，脚本将等待桌面引擎 (`xfdesktop`) 稳定，然后强制切换并启用全窗口共享（`ShareInputState=All`）的中文打字状态。
+
 ### 3. 进入桌面后黑屏
 
 处理顺序：

@@ -358,28 +358,20 @@ cat > "${HOME}/.xinputrc" <<'EOH'
 run_im fcitx5
 EOH
 
-# Fcitx5 XFCE autostart entry (Daemon)
-cat > "${HOME}/.config/autostart/fcitx5.desktop" <<'EOH'
-[Desktop Entry]
-Type=Application
-Name=Fcitx5
-Exec=fcitx5 -d --replace
-Terminal=false
-X-GNOME-Autostart-enabled=true
-EOH
+
 
 # Autostart: force-activate fcitx5 rime AFTER XFCE desktop is fully loaded
 cat > "${HOME}/.config/autostart/fcitx5-activate-rime.desktop" <<'EOH'
 [Desktop Entry]
 Type=Application
 Name=Activate Fcitx5 Rime
-Exec=bash -c "sleep 4 && fcitx5-remote -s rime && fcitx5-remote -o"
+Exec=bash -c "for i in {1..120}; do if pgrep -x xfdesktop >/dev/null 2>&1; then break; fi; sleep 1; done; sleep 5; fcitx5-remote -o; sleep 0.5; fcitx5-remote -s rime; fcitx5-remote -o"
 Terminal=false
 OnlyShowIn=XFCE;
 X-GNOME-Autostart-enabled=true
 EOH
 
-# Configure Fcitx5 profile: set Rime as the default input method
+# Configure Fcitx5 profile: set keyboard-us as default layout, rime as the active input method
 mkdir -p "${HOME}/.config/fcitx5"
 cat > "${HOME}/.config/fcitx5/profile" <<'EOH'
 [Groups/0]
@@ -388,11 +380,11 @@ Default Layout=us
 DefaultIM=rime
 
 [Groups/0/Items/0]
-Name=rime
+Name=keyboard-us
 Layout=
 
 [Groups/0/Items/1]
-Name=keyboard-us
+Name=rime
 Layout=
 
 [GroupOrder]
@@ -403,7 +395,7 @@ EOH
 cat > "${HOME}/.config/fcitx5/config" <<'EOH'
 [Behavior]
 ActiveByDefault=True
-ShareInputState=No
+ShareInputState=All
 PreeditEnabledByDefault=True
 EOH
 
