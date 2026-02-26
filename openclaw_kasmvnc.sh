@@ -692,8 +692,9 @@ upgrade_cmd() {
     compose_cmd exec -T openclaw-gateway sh -lc '
       set -e
       echo "registry=https://registry.npmmirror.com" > "${HOME}/.npmrc"
+      rm -rf /usr/local/lib/node_modules/.openclaw-* /usr/local/bin/.openclaw-* 2>/dev/null || true
       attempt=1
-      until npm i -g openclaw@latest --no-audit --no-fund; do
+      until timeout 30m npm i -g openclaw@latest --no-audit --no-fund --loglevel=info; do
         if [ "${attempt}" -ge 3 ]; then
           echo "openclaw upgrade failed after ${attempt} attempts" >&2
           exit 1

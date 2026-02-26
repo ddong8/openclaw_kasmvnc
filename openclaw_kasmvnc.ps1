@@ -656,7 +656,7 @@ function Upgrade-Command {
     Invoke-Compose -ComposeArgs @(
       "exec", "-T", "openclaw-gateway",
       "sh", "-lc",
-      'set -e; echo "registry=https://registry.npmmirror.com" > "${HOME}/.npmrc"; npm i -g openclaw@latest --no-audit --no-fund || (sleep 5 && npm i -g openclaw@latest --no-audit --no-fund) || (sleep 5 && npm i -g openclaw@latest --no-audit --no-fund)'
+      'set -e; echo "registry=https://registry.npmmirror.com" > "${HOME}/.npmrc"; rm -rf /usr/local/lib/node_modules/.openclaw-* /usr/local/bin/.openclaw-* 2>/dev/null || true; timeout 30m npm i -g openclaw@latest --no-audit --no-fund --loglevel=info || (sleep 5 && timeout 30m npm i -g openclaw@latest --no-audit --no-fund --loglevel=info) || (sleep 5 && timeout 30m npm i -g openclaw@latest --no-audit --no-fund --loglevel=info)'
     )
     Invoke-Compose -ComposeArgs @(
       "exec", "-T", "openclaw-gateway",
