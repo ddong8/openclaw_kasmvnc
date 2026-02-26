@@ -342,9 +342,9 @@ RUN git clone --depth 1 https://github.com/iDvel/rime-ice.git /tmp/rime-ice \
   && rm -rf /tmp/rime-ice
 
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
-COPY scripts/docker/openclaw-kasmvnc-entrypoint.sh /usr/local/bin/openclaw-kasmvnc-entrypoint
-RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
-  && chmod +x /usr/local/bin/systemctl /usr/local/bin/openclaw-kasmvnc-entrypoint \
+COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
+RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
+  && chmod +x /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && usermod -a -G ssl-cert,docker node \
   && echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
@@ -355,11 +355,11 @@ USER node
 
 EXPOSE 18789 18790 8443 8444
 
-ENTRYPOINT ["openclaw-kasmvnc-entrypoint"]
+ENTRYPOINT ["kasmvnc-startup"]
 CMD ["nice", "-n", "19", "ionice", "-c", "3", "openclaw", "gateway", "--bind", "lan", "--port", "18789"]
 EOF
 
-  cat >"$d/scripts/docker/openclaw-kasmvnc-entrypoint.sh" <<'EOF'
+  cat >"$d/scripts/docker/kasmvnc-startup.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -530,7 +530,7 @@ fi
 
 sleep infinity
 EOF
-  chmod +x "$d/scripts/docker/openclaw-kasmvnc-entrypoint.sh"
+  chmod +x "$d/scripts/docker/kasmvnc-startup.sh"
 
   cat >"$d/scripts/docker/systemctl-shim.sh" <<'SHIMEOF'
 #!/usr/bin/env bash
