@@ -8,3 +8,6 @@
 # Temp
 *.tmp
 *.bak
+
+# Agents
+AGENTS.md

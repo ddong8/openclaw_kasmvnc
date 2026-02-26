@@ -460,6 +460,17 @@ fi
 if command -v fcitx5 >/dev/null 2>&1; then
   fcitx5 -d >/tmp/openclaw-fcitx5.log 2>&1 || true
 fi
+if command -v fcitx5-remote >/dev/null 2>&1; then
+  # Force Chinese input mode (Rime) as the startup default.
+  (
+    for _ in $(seq 1 20); do
+      fcitx5-remote >/dev/null 2>&1 && break
+      sleep 0.2
+    done
+    fcitx5-remote -o >/dev/null 2>&1 || true
+    fcitx5-remote -s rime >/dev/null 2>&1 || true
+  ) &
+fi
 exec startxfce4
 EOH
 chmod +x "${HOME}/.vnc/xstartup"
