@@ -526,6 +526,9 @@ EOF
 # systemctl shim for Docker containers without systemd.
 # Translates OpenClaw gateway systemctl calls into process signals.
 set -euo pipefail
+
+DISABLED_MARKER="/tmp/openclaw-gateway.disabled"
+
 find_gateway_pid() {
   local pid
   # Find the process actually listening on the gateway port.
@@ -543,10 +546,7 @@ start_gateway() {
   local pid internal_port
   internal_port="${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789}"
   pid="$(find_gateway_pid || true)"
-  if [[ -n "$pid" ]]; then
-    return 0
-  fi
-
+  if [[ -n "$pid" ]]; then return 0; fi
   if command -v openclaw >/dev/null 2>&1; then
     nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   elif command -v openclaw-gateway >/dev/null 2>&1; then
@@ -555,16 +555,15 @@ start_gateway() {
     echo "systemctl shim: cannot start gateway (openclaw CLI not found)" >&2
     return 1
   fi
-
   for _ in $(seq 1 60); do
     pid="$(find_gateway_pid || true)"
     [[ -n "$pid" ]] && return 0
     sleep 0.25
   done
-
   echo "systemctl shim: gateway failed to start" >&2
   return 1
 }
+
 args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
@@ -572,18 +571,29 @@ for a in "${args[@]}"; do
     status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
   esac
 done
+
 case "$action" in
-  daemon-reload|enable|disable) exit 0 ;;
-  status|is-enabled)
-    # Always exit 0: the gateway service is always known/enabled in this container.
-    # openclaw CLI checks these before start/restart and treats non-zero as unavailable/disabled.
+  daemon-reload|status)
+    # Always return 0: openclaw CLI calls "systemctl --user status" to check
+    # if systemd is available. Non-zero = "systemctl unavailable" = all commands fail.
+    exit 0 ;;
+  enable)
+    rm -f "$DISABLED_MARKER"; exit 0 ;;
+  disable)
+    touch "$DISABLED_MARKER"; exit 0 ;;
+  is-enabled)
+    # Tracks install/uninstall state via marker file.
+    # Default (no marker) = enabled, so entrypoint-started gateway works without "openclaw gateway install".
+    [[ -f "$DISABLED_MARKER" ]] && exit 1
     exit 0 ;;
   is-active)
     pid=$(find_gateway_pid || true)
     [[ -n "$pid" ]] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
   start)
+    rm -f "$DISABLED_MARKER"
     start_gateway; exit $? ;;
   restart)
+    rm -f "$DISABLED_MARKER"
     pid=$(find_gateway_pid || true)
     if [[ -z "$pid" ]]; then
       start_gateway; exit $?
@@ -595,9 +605,7 @@ case "$action" in
     [[ -z "$pid" ]] && exit 0
     kill -TERM "$pid" 2>/dev/null || exit $?
     for _ in $(seq 1 60); do
-      if ! kill -0 "$pid" 2>/dev/null; then
-        exit 0
-      fi
+      if ! kill -0 "$pid" 2>/dev/null; then exit 0; fi
       sleep 0.25
     done
     kill -KILL "$pid" 2>/dev/null || true
