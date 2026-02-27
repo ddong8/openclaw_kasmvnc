@@ -517,8 +517,8 @@ sleep infinity
 
   # ── 生成 systemctl-shim.sh（systemctl 模拟脚本）──
   # 容器内没有 systemd，但 openclaw CLI 依赖 systemctl 管理网关服务。
-  # 此 shim 拦截所有 systemctl 调用，将其转换为进程信号操作：
-  #   - restart → 发送 SIGUSR1 触发热重启（同 PID，不断端口）
+  # 此 shim 拦截所有 systemctl 调用，将其转换为进程管理操作：
+  #   - restart → 完整的 stop + start（杀旧进程 → 启新进程，确保加载最新代码）
   #   - stop    → 发送 SIGTERM 优雅停止
   #   - start   → 通过 nohup 后台启动网关进程
   #   - status  → 始终返回 0（openclaw 用此判断 systemd 是否可用）
@@ -545,11 +545,21 @@ find_gateway_pid() {
   return 1
 }
 
+# 从 openclaw 的 package.json 解析版本号并导出为环境变量
+resolve_openclaw_version() {
+  if [[ -n "${OPENCLAW_VERSION:-}" ]]; then return; fi
+  local ver
+  ver="$(node -p "require('/usr/local/lib/node_modules/openclaw/package.json').version" 2>/dev/null || true)"
+  if [[ -n "$ver" ]]; then export OPENCLAW_VERSION="$ver"; fi
+}
+
 start_gateway() {
   local pid internal_port
   internal_port="${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789}"
   pid="$(find_gateway_pid || true)"
   if [[ -n "$pid" ]]; then return 0; fi
+  # 注入版本号环境变量，供 gateway 前端显示
+  resolve_openclaw_version
   if command -v openclaw >/dev/null 2>&1; then
     nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   elif command -v openclaw-gateway >/dev/null 2>&1; then
@@ -596,13 +606,24 @@ case "$action" in
     rm -f "$DISABLED_MARKER"
     start_gateway; exit $? ;;
   restart)
+    # 重启网关：完整的 stop → start 流程
+    # 不使用 SIGUSR1 热重启，因为 Node.js 进程内热重启不会重新加载磁盘上的新模块，
+    # 导致 openclaw update 后版本不生效。完整重启虽然端口会短暂不可用，但能确保加载最新代码。
     rm -f "$DISABLED_MARKER"
     pid=$(find_gateway_pid || true)
     if [[ -z "$pid" ]]; then
       start_gateway; exit $?
     fi
-    # SIGUSR1 triggers in-place hot restart (same PID, no port drop)
-    kill -USR1 "$pid" 2>/dev/null; exit $? ;;
+    # 先优雅停止旧进程
+    kill -TERM "$pid" 2>/dev/null || true
+    for _ in $(seq 1 60); do
+      if ! kill -0 "$pid" 2>/dev/null; then break; fi
+      sleep 0.25
+    done
+    kill -KILL "$pid" 2>/dev/null || true
+    sleep 0.5
+    # 启动新进程（从磁盘加载最新代码）
+    start_gateway; exit $? ;;
   stop)
     pid=$(find_gateway_pid || true)
     [[ -z "$pid" ]] && exit 0

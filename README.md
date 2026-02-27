@@ -246,9 +246,9 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install
 
 - **本地输入法默认启用**：首次访问 KasmVNC 桌面时，"IME Input Mode（启用本地输入法）"默认开启，无需手动设置。
 - **中文环境预配置**：容器内默认设置 `TZ=Asia/Shanghai`、`LANG=zh_CN.UTF-8`，已预装中文字体（Noto CJK）和 Fcitx5 + Rime（雾凇拼音）输入法。
-- **子进程无损重启**：配置变更时 gateway 自动通过分离的子进程（spawn detached）热拉起新版本，不重建容器主进程，VNC 桌面会话保持且能完美加载更新。
+- **网关无损重启**：`openclaw gateway restart` 通过 shim 执行完整的 stop → start 流程，确保加载最新代码。由于容器主入口进程（`sleep infinity`）不退出，VNC 桌面会话在网关重启期间保持连接。
 - **X11 状态清理**：入口脚本自动清理残留的 X11 锁文件和 VNC 进程，避免容器重启后黑屏。
-- **systemctl shim**：容器内没有 systemd，但内置了 `systemctl` shim 脚本，使 `openclaw gateway restart/stop/start/install/uninstall/update` 等全部命令在容器内正常工作。shim 通过 `lsof` 端口检测识别网关进程，避免 Node.js `process.title` 覆盖 cmdline 导致的误判。
+- **systemctl shim**：容器内没有 systemd，但内置了 `systemctl` shim 脚本，使 `openclaw gateway restart/stop/start/install/uninstall/update` 等全部命令在容器内正常工作。shim 通过 `lsof` 端口检测识别网关进程，避免 Node.js `process.title` 覆盖 cmdline 导致的误判。`restart` 采用完整的 stop → start 流程（而非 SIGUSR1 热重启），确保 `openclaw update` 后新版本代码能被正确加载。
 - **KasmVNC 剪贴板安全**：已移除 KasmVNC 默认剪贴板策略中的 `chromium/x-web-custom-data` MIME 类型，使 Xvnc 进程命令行不再包含 "chromium" 关键字，`pkill -f chromium` 不会误杀 VNC 服务。
 
 ### 在容器内管理 Gateway
@@ -256,7 +256,7 @@ powershell -ExecutionPolicy Bypass -File .\openclaw_kasmvnc.ps1 -Command install
 在 VNC 桌面的终端里，可以直接使用标准的 OpenClaw 命令：
 
 ```bash
-# 重启 gateway（进程内热重启，VNC 不中断）
+# 重启 gateway（完整 stop→start，确保加载最新代码）
 openclaw gateway restart
 
 # 停止 gateway
@@ -266,7 +266,7 @@ openclaw gateway stop
 openclaw gateway status --probe
 ```
 
-> 这些命令通过内置的 `systemctl` shim 实现，将 systemd 调用转换为进程信号（SIGUSR1 / SIGTERM），无需真正的 systemd。
+> 这些命令通过内置的 `systemctl` shim 实现，将 systemd 调用转换为进程管理操作（SIGTERM 停止 / 后台启动），无需真正的 systemd。
 
 ## 避坑指南与已知问题
 
