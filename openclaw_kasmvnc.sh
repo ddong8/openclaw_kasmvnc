@@ -183,7 +183,7 @@ services:
         "gateway",
         "--allow-unconfigured",
         "--bind",
-        "${OPENCLAW_GATEWAY_BIND:-loopback}",
+        "${OPENCLAW_GATEWAY_BIND:-lan}",
         "--port",
         "18789",
       ]
@@ -657,7 +657,7 @@ start_gateway() {
   # 这是前端 webchat 显示版本的数据源（通过 initSelfPresence → WebSocket 推送给前端）
   resolve_openclaw_version
   if command -v openclaw >/dev/null 2>&1; then
-    nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-loopback}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
+    nohup openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   elif command -v openclaw-gateway >/dev/null 2>&1; then
     nohup openclaw-gateway --port "${internal_port}" >/tmp/openclaw-gateway.log 2>&1 &
   else
