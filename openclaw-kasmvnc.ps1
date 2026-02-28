@@ -181,7 +181,7 @@ services:
   # Fcitx5 输入法、Docker CE（DinD 支持）等全部依赖
   # 注意：Dockerfile 内容与 .sh 版本完全一致，两个脚本需同步维护
   @'
-FROM node:22-bookworm
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm
 
 USER root
 

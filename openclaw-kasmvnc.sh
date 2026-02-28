@@ -235,7 +235,7 @@ EOF
   # 基于 node:22-bookworm，安装 OpenClaw、KasmVNC、XFCE 桌面、Chromium、
   # Fcitx5 输入法、Docker CE（DinD 支持）等全部依赖
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
-FROM node:22-bookworm
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm
 
 USER root
 
