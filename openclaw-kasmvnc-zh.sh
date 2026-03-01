@@ -837,15 +837,35 @@ install_cmd() {
         aarch64|arm64) mirror_arch="arm64" ;;
         *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
       esac
-      mirror_url="https://claw.ihasy.com/mirror/node-22-bookworm-${mirror_arch}.tar.gz"
+
+      # 镜像源列表（按优先级尝试）
+      mirror_urls=(
+        "https://claw.ihasy.com/mirror/node-22-bookworm-${mirror_arch}.tar.gz"
+        "https://github.com/ddong8/openclaw-kasmvnc/releases/download/docker-images/node-22-bookworm-${mirror_arch}.tar.gz"
+      )
+
       tmp_file="/tmp/node-22-bookworm-$$.tar.gz"
-      echo "Downloading ${mirror_arch} image from mirror..."
-      if curl -fsSL "$mirror_url" -o "$tmp_file"; then
-        echo "Loading image from mirror..."
-        docker load < "$tmp_file"
-        rm -f "$tmp_file"
-      else
-        echo "Failed to download image from mirror" >&2
+      download_success=0
+
+      for mirror_url in "${mirror_urls[@]}"; do
+        echo "Downloading ${mirror_arch} image from: $mirror_url"
+        if curl -fsSL "$mirror_url" -o "$tmp_file"; then
+          echo "Loading image from mirror..."
+          if docker load < "$tmp_file"; then
+            download_success=1
+            rm -f "$tmp_file"
+            break
+          else
+            echo "Failed to load image, trying next mirror..." >&2
+            rm -f "$tmp_file"
+          fi
+        else
+          echo "Failed to download, trying next mirror..." >&2
+        fi
+      done
+
+      if [[ $download_success -eq 0 ]]; then
+        echo "Failed to download image from all mirrors" >&2
         exit 1
       fi
     fi

@@ -725,17 +725,36 @@ function Install-Command {
         "Arm64" { "arm64" }
         default { throw "Unsupported architecture: $arch" }
       }
-      $mirrorUrl = "https://claw.ihasy.com/mirror/node-22-bookworm-$mirrorArch.tar.gz"
+
+      # 镜像源列表（按优先级尝试）
+      $mirrorUrls = @(
+        "https://claw.ihasy.com/mirror/node-22-bookworm-$mirrorArch.tar.gz",
+        "https://github.com/ddong8/openclaw-kasmvnc/releases/download/docker-images/node-22-bookworm-$mirrorArch.tar.gz"
+      )
+
       $tmpFile = "$env:TEMP\node-22-bookworm-$PID.tar.gz"
-      Write-Host "Downloading $mirrorArch image from mirror..."
-      try {
-        Invoke-WebRequest -Uri $mirrorUrl -OutFile $tmpFile -UseBasicParsing
-        Write-Host "Loading image from mirror..."
-        Get-Content $tmpFile -Raw | docker load
-        Remove-Item $tmpFile -Force
+      $downloadSuccess = $false
+
+      foreach ($mirrorUrl in $mirrorUrls) {
+        Write-Host "Downloading $mirrorArch image from: $mirrorUrl"
+        try {
+          Invoke-WebRequest -Uri $mirrorUrl -OutFile $tmpFile -UseBasicParsing
+          Write-Host "Loading image from mirror..."
+          Get-Content $tmpFile -Raw | docker load
+          Remove-Item $tmpFile -Force
+          $downloadSuccess = $true
+          break
+        }
+        catch {
+          Write-Host "Failed to download, trying next mirror..."
+          if (Test-Path $tmpFile) {
+            Remove-Item $tmpFile -Force
+          }
+        }
       }
-      catch {
-        throw "Failed to download image from mirror: $_"
+
+      if (-not $downloadSuccess) {
+        throw "Failed to download image from all mirrors"
       }
     }
   }
