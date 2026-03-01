@@ -241,7 +241,7 @@ EOF
   # 基于 node:22-bookworm，安装 OpenClaw、KasmVNC、XFCE 桌面、Chromium、
   # Fcitx5 输入法、Docker CE（DinD 支持）等全部依赖
   cat >"$d/Dockerfile.kasmvnc" <<'EOF'
-FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/node:22-bookworm
+FROM node:22-bookworm
 
 USER root
 
@@ -378,36 +378,6 @@ RUN set -eux; \
   url="https://claw.ihasy.com/mirror/kasmvnc/${pkg}"; \
   curl -fsSL "${url}" -o "/tmp/${pkg}"; \
   apt-get update; \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-    libdatetime-timezone-perl \
-    libdatetime-perl \
-    libtimedate-perl \
-    libbsd0 \
-    libfreetype6 \
-    libgbm1 \
-    libgl1 \
-    libgomp1 \
-    libpixman-1-0 \
-    libpng16-16 \
-    libssl3 \
-    libsystemd0 \
-    libunwind8 \
-    libwebp7 \
-    libx11-6 \
-    libxau6 \
-    libxcursor1 \
-    libxdmcp6 \
-    libxext6 \
-    libxfixes3 \
-    libxfont2 \
-    libxrandr2 \
-    libxshmfence1 \
-    libxtst6 \
-    zlib1g \
-    libswitch-perl \
-    libyaml-tiny-perl \
-    libscalar-list-utils-perl \
-    liblist-moreutils-perl; \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "/tmp/${pkg}"; \
   rm -f "/tmp/${pkg}"; \
   rm -rf /var/lib/apt/lists/*
