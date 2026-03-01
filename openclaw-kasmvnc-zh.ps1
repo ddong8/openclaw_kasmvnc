@@ -306,6 +306,10 @@ RUN set -eux; \
   url="https://claw.ihasy.com/mirror/kasmvnc/${pkg}"; \
   curl -fsSL "${url}" -o "/tmp/${pkg}"; \
   apt-get update; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    libdatetime-timezone-perl \
+    libdatetime-perl \
+    libtimedate-perl; \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "/tmp/${pkg}"; \
   rm -f "/tmp/${pkg}"; \
   rm -rf /var/lib/apt/lists/*
