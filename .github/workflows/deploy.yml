@@ -1,0 +1,55 @@
+name: Deploy to Alibaba Cloud ECS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.ECS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.ECS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy website to ECS
+        run: |
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='README.md' \
+            --exclude='README-zh.md' \
+            --exclude='CLAUDE.md' \
+            --exclude='LICENSE' \
+            --exclude='*.sh' \
+            --exclude='*.ps1' \
+            docs/ ${{ secrets.ECS_USER }}@${{ secrets.ECS_HOST }}:/var/www/claw.ihasy.com/
+
+      - name: Deploy scripts to ECS
+        run: |
+          ssh ${{ secrets.ECS_USER }}@${{ secrets.ECS_HOST }} "mkdir -p /var/www/openclaw-kasmvnc"
+          rsync -avz \
+            --include='*.sh' \
+            --include='*.ps1' \
+            --exclude='*' \
+            ./ ${{ secrets.ECS_USER }}@${{ secrets.ECS_HOST }}:/var/www/openclaw-kasmvnc/
+
+      - name: Set permissions
+        run: |
+          ssh ${{ secrets.ECS_USER }}@${{ secrets.ECS_HOST }} << 'EOF'
+            chmod 755 /var/www/openclaw-kasmvnc/*.sh
+            chmod 755 /var/www/openclaw-kasmvnc/*.ps1
+            chown -R www-data:www-data /var/www/claw.ihasy.com
+          EOF
+
+      - name: Reload Nginx
+        run: |
+          ssh ${{ secrets.ECS_USER }}@${{ secrets.ECS_HOST }} "sudo nginx -t && sudo systemctl reload nginx"

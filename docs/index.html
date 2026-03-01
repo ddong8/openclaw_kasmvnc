@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenClaw KasmVNC — 一键部署云端桌面开发环境</title>
+<meta name="description" content="OpenClaw + KasmVNC 一键部署工具，浏览器直连桌面，支持 Windows / macOS / Linux">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2332;
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --accent:#6366f1;--accent2:#818cf8;--accent3:#4f46e5;
+  --green:#10b981;--cyan:#06b6d4;--orange:#f59e0b;
+  --border:#1e293b;--card:#0f172a;
+  --radius:12px;
+}
+html{scroll-behavior:smooth}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.7;overflow-x:hidden}
+a{color:var(--accent2);text-decoration:none;transition:color .2s}
+a:hover{color:var(--cyan)}
+.container{max-width:1100px;margin:0 auto;padding:0 24px}
+
+/* Nav */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(10,14,23,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:14px 0}
+nav .container{display:flex;align-items:center;justify-content:space-between}
+nav .logo{font-size:1.2rem;font-weight:700;color:#fff}
+nav .logo span{color:var(--accent2)}
+nav .nav-links{display:flex;gap:24px;list-style:none}
+nav .nav-links a{color:var(--text2);font-size:.9rem;transition:color .2s}
+nav .nav-links a:hover{color:#fff}
+.menu-btn{display:none;background:none;border:none;color:var(--text);font-size:1.5rem;cursor:pointer}
+
+/* Hero */
+.hero{padding:140px 0 80px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 50% 0%,rgba(99,102,241,.15) 0%,transparent 60%);pointer-events:none}
+.hero h1{font-size:clamp(2rem,5vw,3.2rem);font-weight:800;margin-bottom:16px;background:linear-gradient(135deg,#fff 0%,var(--accent2) 50%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero .subtitle{font-size:clamp(1rem,2.5vw,1.25rem);color:var(--text2);max-width:640px;margin:0 auto 40px}
+.hero .quick-install{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:16px 24px;display:inline-flex;align-items:center;gap:12px;font-family:"SF Mono",Monaco,Consolas,monospace;font-size:.9rem;color:var(--green);max-width:100%;overflow-x:auto}
+.hero .quick-install .prompt{color:var(--text3);user-select:none}
+
+/* Section */
+section{padding:80px 0}
+.section-title{text-align:center;margin-bottom:48px}
+.section-title h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:700;margin-bottom:8px}
+.section-title p{color:var(--text2);font-size:1rem}
+
+/* Features */
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.feature-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;transition:transform .2s,border-color .2s}
+.feature-card:hover{transform:translateY(-4px);border-color:var(--accent)}
+.feature-card .icon{font-size:2rem;margin-bottom:12px}
+.feature-card h3{font-size:1.1rem;margin-bottom:8px}
+.feature-card p{color:var(--text2);font-size:.9rem}
+
+/* Tabs */
+.tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab-btn{padding:8px 20px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:.9rem;transition:all .2s}
+.tab-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* Code block */
+.code-block{position:relative;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.code-block pre{padding:20px;overflow-x:auto;font-family:"SF Mono",Monaco,Consolas,monospace;font-size:.85rem;line-height:1.8;color:var(--green)}
+.code-block .copy-btn{position:absolute;top:10px;right:10px;background:var(--bg3);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:.8rem;transition:all .2s}
+.code-block .copy-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.code-block .copy-btn.copied{background:var(--green);border-color:var(--green);color:#fff}
+
+/* Config card */
+.config-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:24px}
+.config-section h3{font-size:1.15rem;margin-bottom:8px}
+.config-section .desc{color:var(--text2);font-size:.9rem;margin-bottom:16px}
+
+/* Table */
+.model-table{width:100%;border-collapse:collapse;font-size:.9rem}
+.model-table th,.model-table td{padding:10px 16px;text-align:left;border-bottom:1px solid var(--border)}
+.model-table th{color:var(--text2);font-weight:600;font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
+.model-table tr:hover td{background:rgba(99,102,241,.05)}
+
+/* Promo card */
+.promo-card{background:linear-gradient(135deg,var(--accent3),#7c3aed);border-radius:var(--radius);padding:36px;text-align:center;position:relative;overflow:hidden}
+.promo-card::before{content:'';position:absolute;top:-50%;right:-50%;width:100%;height:200%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 60%);pointer-events:none}
+.promo-card h3{font-size:1.4rem;margin-bottom:8px}
+.promo-card .price{font-size:2.5rem;font-weight:800;margin:12px 0}
+.promo-card .price small{font-size:.9rem;font-weight:400;color:rgba(255,255,255,.7)}
+.promo-card .desc{color:rgba(255,255,255,.8);margin-bottom:20px;font-size:.95rem}
+.promo-card .btn{display:inline-block;background:#fff;color:var(--accent3);padding:12px 32px;border-radius:8px;font-weight:600;font-size:1rem;transition:transform .2s}
+.promo-card .btn:hover{transform:scale(1.05);color:var(--accent3)}
+
+/* Commands */
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cmd-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.cmd-item .cmd-name{font-family:monospace;color:var(--cyan);font-size:.95rem;margin-bottom:6px}
+.cmd-item .cmd-desc{color:var(--text2);font-size:.85rem}
+
+/* FAQ */
+.faq-item{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:12px;overflow:hidden}
+.faq-q{padding:18px 24px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:var(--card);font-weight:500;transition:background .2s}
+.faq-q:hover{background:var(--bg3)}
+.faq-q .arrow{transition:transform .3s;color:var(--text3);font-size:.8rem}
+.faq-item.open .faq-q .arrow{transform:rotate(180deg)}
+.faq-a{max-height:0;overflow:hidden;transition:max-height .3s ease;background:var(--bg2)}
+.faq-item.open .faq-a{max-height:500px}
+.faq-a-inner{padding:18px 24px;color:var(--text2);font-size:.9rem;line-height:1.8}
+.faq-a-inner code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:.85rem;color:var(--cyan)}
+
+/* Footer */
+footer{border-top:1px solid var(--border);padding:40px 0;text-align:center;color:var(--text3);font-size:.85rem}
+footer a{color:var(--text2)}
+footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:12px}
+
+/* Responsive */
+@media(max-width:768px){
+  nav .nav-links{display:none;position:absolute;top:100%;left:0;right:0;background:var(--bg2);flex-direction:column;padding:16px 24px;gap:16px;border-bottom:1px solid var(--border)}
+  nav .nav-links.open{display:flex}
+  .menu-btn{display:block}
+  .hero{padding:120px 0 60px}
+  section{padding:60px 0}
+  .features-grid{grid-template-columns:1fr}
+  .cmd-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+<div class="container">
+  <a href="#" class="logo">Open<span>Claw</span> KasmVNC</a>
+  <button class="menu-btn" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="菜单">☰</button>
+  <ul class="nav-links">
+    <li><a href="#features">亮点</a></li>
+    <li><a href="#install">安装</a></li>
+    <li><a href="#config">配置</a></li>
+    <li><a href="#commands">命令</a></li>
+    <li><a href="#faq">FAQ</a></li>
+    <li><a href="https://github.com/ddong8/openclaw-kasmvnc" target="_blank">GitHub</a></li>
+  </ul>
+</div>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+<div class="container">
+  <h1>一键部署云端桌面开发环境</h1>
+  <p class="subtitle">OpenClaw + KasmVNC，浏览器直连远程桌面，支持 Docker-in-Docker、GPU 加速、中文输入法，开箱即用</p>
+  <div class="quick-install">
+    <span class="prompt">$</span>
+    <span id="hero-cmd">curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw-kasmvnc/main/openclaw-kasmvnc-zh.sh | bash -s -- install</span>
+    <button class="copy-btn" onclick="copyText('hero-cmd',this)">复制</button>
+  </div>
+</div>
+</section>
+
+<!-- Features -->
+<section id="features">
+<div class="container">
+  <div class="section-title">
+    <h2>为什么选择 OpenClaw KasmVNC</h2>
+    <p>容器化桌面 + AI 编程助手，一条命令搞定</p>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card"><div class="icon">🌐</div><h3>浏览器直连桌面</h3><p>无需安装 VNC 客户端，打开浏览器即可访问完整 Linux 桌面环境</p></div>
+    <div class="feature-card"><div class="icon">📦</div><h3>环境隔离</h3><p>OpenClaw、桌面、依赖全部运行在容器内，不污染宿主机系统</p></div>
+    <div class="feature-card"><div class="icon">⚡</div><h3>一键部署</h3><p>一条命令完成安装，支持 install / upgrade / restart / uninstall 全生命周期管理</p></div>
+    <div class="feature-card"><div class="icon">💻</div><h3>跨平台支持</h3><p>Windows (PowerShell) / macOS / Linux 三平台统一体验，行为一致</p></div>
+    <div class="feature-card"><div class="icon">🎮</div><h3>GPU 自动检测</h3><p>安装时自动识别 NVIDIA GPU，有则启用 nvidia runtime，无则跳过</p></div>
+    <div class="feature-card"><div class="icon">🐳</div><h3>Docker-in-Docker</h3><p>容器内内置 dockerd，OpenClaw 可直接创建和管理子容器，无需额外配置</p></div>
+  </div>
+</div>
+</section>
+
+<!-- Install -->
+<section id="install" style="background:var(--bg2)">
+<div class="container">
+  <div class="section-title">
+    <h2>快速安装</h2>
+    <p>选择你的操作系统，复制命令即可开始</p>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('win')">Windows</button>
+    <button class="tab-btn" onclick="switchTab('mac')">macOS</button>
+    <button class="tab-btn" onclick="switchTab('linux')">Linux</button>
+  </div>
+  <div id="tab-win" class="tab-content active">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('code-win',this)">复制</button>
+      <pre id="code-win">irm https://raw.githubusercontent.com/ddong8/openclaw-kasmvnc/main/openclaw-kasmvnc-zh.ps1 | iex</pre>
+    </div>
+  </div>
+  <div id="tab-mac" class="tab-content">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('code-mac',this)">复制</button>
+      <pre id="code-mac">curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw-kasmvnc/main/openclaw-kasmvnc-zh.sh | bash -s -- install</pre>
+    </div>
+  </div>
+  <div id="tab-linux" class="tab-content">
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('code-linux',this)">复制</button>
+      <pre id="code-linux">curl -fsSL https://raw.githubusercontent.com/ddong8/openclaw-kasmvnc/main/openclaw-kasmvnc-zh.sh | bash -s -- install</pre>
+    </div>
+  </div>
+  <p style="color:var(--text3);font-size:.85rem;margin-top:16px;text-align:center">前置条件：Docker（含 Docker Compose v2）· Windows 需 PowerShell 5+ · macOS/Linux 需 Bash</p>
+</div>
+</section>
+
+<!-- Config -->
+<section id="config">
+<div class="container">
+  <div class="section-title">
+    <h2>推荐配置</h2>
+    <p>使用阿里云百炼 API，接入国产大模型</p>
+  </div>
+
+  <div class="config-section">
+    <h3>1. 获取 API Key</h3>
+    <p class="desc">前往 <a href="https://bailian.console.aliyun.com/" target="_blank">阿里云百炼控制台</a> 创建 API Key，用于 OpenClaw 调用大模型。</p>
+  </div>
+
+  <div class="config-section">
+    <h3>2. 配置 openclaw.json</h3>
+    <p class="desc">安装完成后，编辑 <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--cyan)">~/.openclaw/openclaw.json</code>（容器内路径），填入你的 API Key：</p>
+    <div class="code-block">
+      <button class="copy-btn" onclick="copyCode('code-config',this)">复制</button>
+      <pre id="code-config">{
+  "mcpServers": {},
+  "providers": {
+    "bailian": {
+      "name": "阿里云百炼",
+      "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+      "apiKey": "sk-your-api-key-here",
+      "models": [
+        { "name": "qwen3.5-plus", "maxTokens": 41960 },
+        { "name": "qwen3-max", "maxTokens": 41960 },
+        { "name": "qwen3-coder-next", "maxTokens": 41960 },
+        { "name": "qwen3-coder-plus", "maxTokens": 41960 },
+        { "name": "MiniMax-M2.5", "maxTokens": 41960 },
+        { "name": "glm-5", "maxTokens": 41960 },
+        { "name": "glm-4.7", "maxTokens": 41960 },
+        { "name": "kimi-k2.5", "maxTokens": 41960 }
+      ]
+    }
+  },
+  "selectedProvider": "bailian",
+  "selectedModel": "qwen3-coder-plus"
+}</pre>
+    </div>
+    <p class="desc" style="margin-top:12px;color:var(--orange)">⚠ 请将 <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--orange)">sk-your-api-key-here</code> 替换为你的真实 API Key</p>
+  </div>
+
+  <div class="config-section">
+    <h3>3. 支持的模型</h3>
+    <p class="desc">通过百炼 API 可使用以下模型：</p>
+    <div style="overflow-x:auto">
+    <table class="model-table">
+      <thead><tr><th>模型</th><th>厂商</th><th>特点</th></tr></thead>
+      <tbody>
+        <tr><td>qwen3.5-plus</td><td>通义千问</td><td>最新一代，综合能力强</td></tr>
+        <tr><td>qwen3-max</td><td>通义千问</td><td>旗舰模型，推理能力顶尖</td></tr>
+        <tr><td>qwen3-coder-next</td><td>通义千问</td><td>代码专精，下一代</td></tr>
+        <tr><td>qwen3-coder-plus</td><td>通义千问</td><td>代码专精，性价比高</td></tr>
+        <tr><td>MiniMax-M2.5</td><td>MiniMax</td><td>多模态，长上下文</td></tr>
+        <tr><td>glm-5</td><td>智谱 AI</td><td>最新一代 GLM</td></tr>
+        <tr><td>glm-4.7</td><td>智谱 AI</td><td>稳定可靠</td></tr>
+        <tr><td>kimi-k2.5</td><td>月之暗面</td><td>长文本理解</td></tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- Server Promo -->
+<section style="background:var(--bg2)">
+<div class="container">
+  <div class="section-title">
+    <h2>服务器推荐</h2>
+    <p>没有服务器？阿里云新人专享优惠</p>
+  </div>
+  <div class="promo-card">
+    <h3>阿里云 ECS 云服务器</h3>
+    <div class="price">¥7.9<small> /首月</small></div>
+    <p class="desc">2核2G 起步，满足 OpenClaw + KasmVNC 部署需求，新用户专享</p>
+    <a href="https://www.aliyun.com/benefit/ai/aistar?userCode=yu1wt9j8&clubBiz=subTask..12387163..10263.." target="_blank" class="btn">立即购买</a>
+  </div>
+</div>
+</section>
+
+<!-- Commands -->
+<section id="commands">
+<div class="container">
+  <div class="section-title">
+    <h2>常用命令</h2>
+    <p>全生命周期管理，一个脚本搞定</p>
+  </div>
+  <div class="cmd-grid">
+    <div class="cmd-item"><div class="cmd-name">install</div><div class="cmd-desc">全新安装，构建镜像并启动服务</div></div>
+    <div class="cmd-item"><div class="cmd-name">uninstall</div><div class="cmd-desc">停止并移除容器（加 --purge 删除安装目录）</div></div>
+    <div class="cmd-item"><div class="cmd-name">restart</div><div class="cmd-desc">重启容器，配置修改后执行此命令生效</div></div>
+    <div class="cmd-item"><div class="cmd-name">upgrade</div><div class="cmd-desc">热更新 OpenClaw 到最新版，无需重建镜像</div></div>
+    <div class="cmd-item"><div class="cmd-name">status</div><div class="cmd-desc">查看容器运行状态</div></div>
+    <div class="cmd-item"><div class="cmd-name">logs --tail 200</div><div class="cmd-desc">查看最近 200 行日志，快速定位问题</div></div>
+  </div>
+</div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" style="background:var(--bg2)">
+<div class="container">
+  <div class="section-title">
+    <h2>常见问题</h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">端口被占用怎么办？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">安装时指定其他端口：<code>--gateway-port 28789 --https-port 9443</code>（Windows 用 <code>-GatewayPort 28789 -HttpsPort 9443</code>），然后重新 install。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">KasmVNC 提示 HTTPS 证书不安全？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">默认使用容器自签名证书，属于正常现象。在浏览器选择"继续访问"即可，或自行配置反向代理（Nginx / Caddy）。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">中文输入法没有激活？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">旧卷配置冲突导致。在宿主机执行 <code>upgrade</code>，然后在 VNC 终端执行 <code>rm -rf ~/.config/fcitx5 ~/.local/share/fcitx5/rime/default.custom.yaml</code>，最后从桌面菜单 Log Out 并刷新页面重新进入。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">进入桌面后黑屏？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">依次尝试：<code>restart</code> → <code>status</code> → <code>logs --tail 200</code> → <code>upgrade</code>。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">macOS 上出现 chown: Operation not permitted？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">macOS M 系列部分挂载路径会出现此提示，容器运行正常则可安全忽略。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">为什么用 Chromium 而不是 Chrome？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">三个原因：1) 多架构兼容 — Google 未提供 ARM64 Chrome；2) 版权合规 — Chrome 含闭源插件；3) 依赖纯净 — apt 安装的 Chromium 与系统库无缝兼容。</div></div></div>
+  </div>
+</div>
+</section>
+
+<!-- Footer -->
+<footer>
+<div class="container">
+  <div class="footer-links">
+    <a href="https://github.com/ddong8/openclaw-kasmvnc" target="_blank">GitHub</a>
+    <a href="https://github.com/ddong8/openclaw-kasmvnc/issues" target="_blank">问题反馈</a>
+    <a href="https://github.com/ddong8/openclaw-kasmvnc/blob/main/LICENSE" target="_blank">MIT License</a>
+  </div>
+  <p>© 2025 OpenClaw KasmVNC. Released under the MIT License.</p>
+</div>
+</footer>
+
+<script>
+function copyText(id,btn){
+  navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
+  btn.textContent='已复制';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied')},2000);
+}
+function copyCode(id,btn){
+  navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
+  btn.textContent='已复制';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied')},2000);
+}
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+}
+function toggleFaq(el){
+  el.parentElement.classList.toggle('open');
+}
+// Close mobile menu on link click
+document.querySelectorAll('.nav-links a').forEach(a=>{
+  a.addEventListener('click',()=>document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>
