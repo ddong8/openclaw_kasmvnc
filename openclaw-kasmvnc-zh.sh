@@ -824,6 +824,27 @@ install_cmd() {
     exit 1
   fi
 
+  # 确保基础镜像可用：优先使用官方镜像，失败则从镜像站下载
+  echo "Checking base image: node:22-bookworm"
+  if ! docker image inspect node:22-bookworm >/dev/null 2>&1; then
+    echo "Pulling node:22-bookworm from Docker Hub..."
+    if ! docker pull node:22-bookworm 2>/dev/null; then
+      echo "Failed to pull from Docker Hub, downloading from mirror..."
+      mirror_url="https://claw.ihasy.com/mirror/node-22-bookworm.tar.gz"
+      tmp_file="/tmp/node-22-bookworm-$$.tar.gz"
+      if curl -fsSL "$mirror_url" -o "$tmp_file"; then
+        echo "Loading image from mirror..."
+        docker load < "$tmp_file"
+        rm -f "$tmp_file"
+      else
+        echo "Failed to download image from mirror" >&2
+        exit 1
+      fi
+    fi
+  else
+    echo "Base image already exists locally"
+  fi
+
   if [[ -z "$GATEWAY_TOKEN" ]]; then
     GATEWAY_TOKEN="$(random_hex 32)"
   fi

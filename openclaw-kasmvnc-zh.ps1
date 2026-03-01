@@ -705,6 +705,33 @@ function Install-Command {
     throw "Missing Docker Compose v2 plugin: 'docker compose'"
   }
 
+  # 确保基础镜像可用：优先使用官方镜像，失败则从镜像站下载
+  Write-Host "Checking base image: node:22-bookworm"
+  try {
+    docker image inspect node:22-bookworm 2>$null | Out-Null
+    Write-Host "Base image already exists locally"
+  }
+  catch {
+    Write-Host "Pulling node:22-bookworm from Docker Hub..."
+    try {
+      docker pull node:22-bookworm 2>$null | Out-Null
+    }
+    catch {
+      Write-Host "Failed to pull from Docker Hub, downloading from mirror..."
+      $mirrorUrl = "https://claw.ihasy.com/mirror/node-22-bookworm.tar.gz"
+      $tmpFile = "$env:TEMP\node-22-bookworm-$PID.tar.gz"
+      try {
+        Invoke-WebRequest -Uri $mirrorUrl -OutFile $tmpFile -UseBasicParsing
+        Write-Host "Loading image from mirror..."
+        Get-Content $tmpFile -Raw | docker load
+        Remove-Item $tmpFile -Force
+      }
+      catch {
+        throw "Failed to download image from mirror: $_"
+      }
+    }
+  }
+
   if ([string]::IsNullOrWhiteSpace($GatewayToken)) {
     $GatewayToken = New-RandomHex -Bytes 32
   }
