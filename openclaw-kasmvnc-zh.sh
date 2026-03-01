@@ -830,8 +830,16 @@ install_cmd() {
     echo "Pulling node:22-bookworm from Docker Hub..."
     if ! docker pull node:22-bookworm 2>/dev/null; then
       echo "Failed to pull from Docker Hub, downloading from mirror..."
-      mirror_url="https://claw.ihasy.com/mirror/node-22-bookworm.tar.gz"
+      # 检测系统架构
+      arch="$(uname -m)"
+      case "$arch" in
+        x86_64|amd64) mirror_arch="amd64" ;;
+        aarch64|arm64) mirror_arch="arm64" ;;
+        *) echo "Unsupported architecture: $arch" >&2; exit 1 ;;
+      esac
+      mirror_url="https://claw.ihasy.com/mirror/node-22-bookworm-${mirror_arch}.tar.gz"
       tmp_file="/tmp/node-22-bookworm-$$.tar.gz"
+      echo "Downloading ${mirror_arch} image from mirror..."
       if curl -fsSL "$mirror_url" -o "$tmp_file"; then
         echo "Loading image from mirror..."
         docker load < "$tmp_file"

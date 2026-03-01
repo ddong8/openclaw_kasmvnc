@@ -718,8 +718,16 @@ function Install-Command {
     }
     catch {
       Write-Host "Failed to pull from Docker Hub, downloading from mirror..."
-      $mirrorUrl = "https://claw.ihasy.com/mirror/node-22-bookworm.tar.gz"
+      # 检测系统架构
+      $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+      $mirrorArch = switch ($arch) {
+        "X64" { "amd64" }
+        "Arm64" { "arm64" }
+        default { throw "Unsupported architecture: $arch" }
+      }
+      $mirrorUrl = "https://claw.ihasy.com/mirror/node-22-bookworm-$mirrorArch.tar.gz"
       $tmpFile = "$env:TEMP\node-22-bookworm-$PID.tar.gz"
+      Write-Host "Downloading $mirrorArch image from mirror..."
       try {
         Invoke-WebRequest -Uri $mirrorUrl -OutFile $tmpFile -UseBasicParsing
         Write-Host "Loading image from mirror..."
