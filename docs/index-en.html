@@ -386,6 +386,22 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 </footer>
 
 <script>
+// Auto language detection and redirect
+(function() {
+  const userLang = navigator.language || navigator.userLanguage;
+  const isZh = userLang.toLowerCase().startsWith('zh');
+  const currentPage = window.location.pathname;
+  const hasLangPreference = localStorage.getItem('langPreference');
+
+  // Only redirect if no language preference is set and on English page
+  if (!hasLangPreference && currentPage.includes('index-en.html')) {
+    if (isZh) {
+      // Chinese users go to Chinese version
+      window.location.href = '/index.html';
+    }
+  }
+})();
+
 function copyText(id,btn){
   navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
   btn.textContent='Copied';btn.classList.add('copied');
@@ -416,6 +432,12 @@ document.addEventListener('click',()=>{
 // Close mobile menu on link click
 document.querySelectorAll('.nav-links a').forEach(a=>{
   a.addEventListener('click',()=>document.querySelector('.nav-links').classList.remove('open'));
+});
+// Save language preference when user manually switches
+document.querySelectorAll('.lang-dropdown a').forEach(a=>{
+  a.addEventListener('click',()=>{
+    localStorage.setItem('langPreference', 'manual');
+  });
 });
 </script>
 </body>
