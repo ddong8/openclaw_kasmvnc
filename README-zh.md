@@ -4,7 +4,7 @@
 
 一键部署 OpenClaw + KasmVNC（支持 Windows / macOS / Linux）。
 
-![OpenClaw 桌面环境](docs/screenshot-desktop.png)
+![OpenClaw 桌面环境](docs/screenshot-desktop.jpg)
 
 ## 核心优势
 
