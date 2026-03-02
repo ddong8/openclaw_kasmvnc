@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<title>OpenClaw 云桌面 — 一键部署 OpenClaw Agent 环境</title>
-<meta name="description" content="OpenClaw 云桌面 一键部署工具，浏览器直连桌面，支持 Windows / macOS / Linux">
+<title>OpenClaw Cloud Desktop — One-Click OpenClaw Agent Deployment</title>
+<meta name="description" content="OpenClaw Cloud Desktop deployment tool, browser-based remote desktop, supports Windows / macOS / Linux">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
@@ -166,22 +166,22 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <!-- Nav -->
 <nav>
 <div class="container">
-  <a href="#" class="logo">OpenClaw<span> 云桌面</span></a>
-  <button class="menu-btn" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="菜单">☰</button>
+  <a href="#" class="logo">OpenClaw<span> Cloud Desktop</span></a>
+  <button class="menu-btn" onclick="document.querySelector('.nav-links').classList.toggle('open')" aria-label="Menu">☰</button>
   <ul class="nav-links">
-    <li><a href="#features">特性</a></li>
-    <li><a href="#install">安装</a></li>
-    <li><a href="#config">配置</a></li>
-    <li><a href="#commands">命令</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#install">Install</a></li>
+    <li><a href="#config">Config</a></li>
+    <li><a href="#commands">Commands</a></li>
     <li><a href="#faq">FAQ</a></li>
     <li class="lang-selector">
       <button class="lang-btn" onclick="toggleLang(event)">
-        <span>🇨🇳 简体中文</span>
+        <span>🇺🇸 English</span>
         <span style="font-size:.7rem">▼</span>
       </button>
       <div class="lang-dropdown" id="langDropdown">
-        <a href="index.html" class="active">🇨🇳 简体中文</a>
-        <a href="index-en.html">🇺🇸 English</a>
+        <a href="index.html">🇨🇳 简体中文</a>
+        <a href="index-en.html" class="active">🇺🇸 English</a>
       </div>
     </li>
     <li><a href="https://github.com/ddong8/openclaw-kasmvnc" target="_blank" title="GitHub" aria-label="GitHub">
@@ -196,12 +196,12 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <!-- Hero -->
 <section class="hero">
 <div class="container">
-  <h1>一键部署 OpenClaw Agent 环境</h1>
-  <p class="subtitle">OpenClaw 云桌面，浏览器直连远程桌面，支持 Docker-in-Docker、GPU 加速、中文输入法，开箱即用</p>
+  <h1>One-Click OpenClaw Agent Deployment</h1>
+  <p class="subtitle">OpenClaw Cloud Desktop, browser-based remote desktop with Docker-in-Docker, GPU acceleration, and Chinese input support, ready out of the box</p>
   <div class="quick-install">
     <span class="prompt">$</span>
-    <span id="hero-cmd">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc-zh.sh | bash -s -- install</span>
-    <button class="copy-btn" onclick="copyText('hero-cmd',this)">复制</button>
+    <span id="hero-cmd">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc.sh | bash -s -- install</span>
+    <button class="copy-btn" onclick="copyText('hero-cmd',this)">Copy</button>
   </div>
 </div>
 </section>
@@ -210,19 +210,19 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section id="features">
 <div class="container">
   <div class="section-title">
-    <h2>为什么选择 OpenClaw 云桌面</h2>
-    <p>解决官方 Docker 方案和云厂商部署的核心痛点</p>
+    <h2>Why Choose OpenClaw Cloud Desktop</h2>
+    <p>Solving core pain points of official Docker solution and cloud vendor deployments</p>
   </div>
   <div class="features-grid">
-    <div class="feature-card"><div class="icon">🔧</div><h3>容器内完整生命周期</h3><p>官方 Docker 方案无 systemd 导致无法容器内重启/升级。本项目通过 systemctl shim 完美解决，支持容器内 restart、upgrade 等全生命周期管理</p></div>
-    <div class="feature-card"><div class="icon">👁️</div><h3>可视化桌面环境</h3><p>云厂商一键部署只有命令行，无法观察 Agent 操作。本项目提供完整 XFCE 桌面，实时查看 OpenClaw 操作浏览器过程</p></div>
-    <div class="feature-card"><div class="icon">🌐</div><h3>浏览器直连桌面</h3><p>无需安装 VNC 客户端，打开浏览器即可访问完整 Linux 桌面环境</p></div>
-    <div class="feature-card"><div class="icon">📦</div><h3>环境隔离</h3><p>OpenClaw、桌面、依赖全部运行在容器内，不污染宿主机系统</p></div>
-    <div class="feature-card"><div class="icon">⚡</div><h3>一键部署</h3><p>一条命令完成安装，支持 install / upgrade / restart / uninstall 全生命周期管理</p></div>
-    <div class="feature-card"><div class="icon">🎮</div><h3>GPU 自动检测</h3><p>安装时自动识别 NVIDIA GPU，有则启用 nvidia runtime，无则跳过</p></div>
-    <div class="feature-card"><div class="icon">🦞</div><h3>大规模部署</h3><p>标准化容器方案使大规模部署龙虾成为可能，统一管理多个 OpenClaw 实例</p></div>
-    <div class="feature-card"><div class="icon">💻</div><h3>跨平台支持</h3><p>Windows (PowerShell) / macOS / Linux 三平台统一体验，行为一致</p></div>
-    <div class="feature-card"><div class="icon">🐳</div><h3>Docker-in-Docker</h3><p>容器内内置 dockerd，OpenClaw 可直接创建和管理子容器，无需额外配置</p></div>
+    <div class="feature-card"><div class="icon">🔧</div><h3>Full Container Lifecycle</h3><p>Official Docker solution lacks systemd, preventing in-container restart/upgrade. This project solves it perfectly with systemctl shim, supporting full lifecycle management like restart and upgrade inside containers</p></div>
+    <div class="feature-card"><div class="icon">👁️</div><h3>Visual Desktop Environment</h3><p>Cloud vendor one-click deployments only provide CLI, making it impossible to observe Agent operations. This project provides a complete XFCE desktop to watch OpenClaw interact with browsers in real-time</p></div>
+    <div class="feature-card"><div class="icon">🌐</div><h3>Browser-Based Desktop</h3><p>No VNC client installation needed, access full Linux desktop environment directly from your browser</p></div>
+    <div class="feature-card"><div class="icon">📦</div><h3>Environment Isolation</h3><p>OpenClaw, desktop, and dependencies all run inside containers without polluting the host system</p></div>
+    <div class="feature-card"><div class="icon">⚡</div><h3>One-Click Deployment</h3><p>Complete installation with a single command, supporting full lifecycle management: install / upgrade / restart / uninstall</p></div>
+    <div class="feature-card"><div class="icon">🎮</div><h3>GPU Auto-Detection</h3><p>Automatically detects NVIDIA GPU during installation, enables nvidia runtime if available, skips otherwise</p></div>
+    <div class="feature-card"><div class="icon">🦞</div><h3>Large-Scale Deployment</h3><p>Standardized container solution enables large-scale lobster deployment, unified management of multiple OpenClaw instances</p></div>
+    <div class="feature-card"><div class="icon">💻</div><h3>Cross-Platform Support</h3><p>Unified experience across Windows (PowerShell) / macOS / Linux with consistent behavior</p></div>
+    <div class="feature-card"><div class="icon">🐳</div><h3>Docker-in-Docker</h3><p>Built-in dockerd inside container, OpenClaw can directly create and manage child containers without extra configuration</p></div>
   </div>
 </div>
 </section>
@@ -231,8 +231,8 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section id="install" style="background:var(--bg2)">
 <div class="container">
   <div class="section-title">
-    <h2>快速安装</h2>
-    <p>选择你的操作系统，复制命令即可开始</p>
+    <h2>Quick Install</h2>
+    <p>Choose your operating system and copy the command to get started</p>
   </div>
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('win')">Windows</button>
@@ -241,23 +241,23 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
   </div>
   <div id="tab-win" class="tab-content active">
     <div class="code-block">
-      <button class="copy-btn" onclick="copyCode('code-win',this)">复制</button>
-      <pre id="code-win">irm https://claw.ihasy.com/openclaw-kasmvnc-zh.ps1 | iex</pre>
+      <button class="copy-btn" onclick="copyCode('code-win',this)">Copy</button>
+      <pre id="code-win">irm https://claw.ihasy.com/openclaw-kasmvnc.ps1 | iex</pre>
     </div>
   </div>
   <div id="tab-mac" class="tab-content">
     <div class="code-block">
-      <button class="copy-btn" onclick="copyCode('code-mac',this)">复制</button>
-      <pre id="code-mac">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc-zh.sh | bash -s -- install</pre>
+      <button class="copy-btn" onclick="copyCode('code-mac',this)">Copy</button>
+      <pre id="code-mac">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc.sh | bash -s -- install</pre>
     </div>
   </div>
   <div id="tab-linux" class="tab-content">
     <div class="code-block">
-      <button class="copy-btn" onclick="copyCode('code-linux',this)">复制</button>
-      <pre id="code-linux">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc-zh.sh | bash -s -- install</pre>
+      <button class="copy-btn" onclick="copyCode('code-linux',this)">Copy</button>
+      <pre id="code-linux">curl -fsSL https://claw.ihasy.com/openclaw-kasmvnc.sh | bash -s -- install</pre>
     </div>
   </div>
-  <p style="color:var(--text3);font-size:.85rem;margin-top:16px;text-align:center">前置条件：Docker（含 Docker Compose v2）· Windows 需 PowerShell 5+ · macOS/Linux 需 Bash</p>
+  <p style="color:var(--text3);font-size:.85rem;margin-top:16px;text-align:center">Prerequisites: Docker (with Docker Compose v2) · Windows requires PowerShell 5+ · macOS/Linux requires Bash</p>
 </div>
 </section>
 
@@ -265,25 +265,25 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section id="config">
 <div class="container">
   <div class="section-title">
-    <h2>推荐配置</h2>
-    <p>使用阿里云百炼 API，接入国产大模型</p>
+    <h2>Recommended Configuration</h2>
+    <p>Use Alibaba Cloud Bailian API to access Chinese LLMs</p>
   </div>
 
   <div class="config-section">
-    <h3>1. 获取 API Key</h3>
-    <p class="desc">前往 <a href="https://bailian.console.aliyun.com/" target="_blank">阿里云百炼控制台</a> 创建 API Key，用于 OpenClaw 调用大模型。</p>
+    <h3>1. Get API Key</h3>
+    <p class="desc">Visit <a href="https://bailian.console.aliyun.com/" target="_blank">Alibaba Cloud Bailian Console</a> to create an API Key for OpenClaw to call LLMs.</p>
   </div>
 
   <div class="config-section">
-    <h3>2. 配置 openclaw.json</h3>
-    <p class="desc">安装完成后，编辑 <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--cyan)">~/.openclaw/openclaw.json</code>（容器内路径），填入你的 API Key：</p>
+    <h3>2. Configure openclaw.json</h3>
+    <p class="desc">After installation, edit <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--cyan)">~/.openclaw/openclaw.json</code> (path inside container) and fill in your API Key:</p>
     <div class="code-block">
-      <button class="copy-btn" onclick="copyCode('code-config',this)">复制</button>
+      <button class="copy-btn" onclick="copyCode('code-config',this)">Copy</button>
       <pre id="code-config">{
   "mcpServers": {},
   "providers": {
     "bailian": {
-      "name": "阿里云百炼",
+      "name": "Alibaba Cloud Bailian",
       "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
       "apiKey": "sk-your-api-key-here",
       "models": [
@@ -302,24 +302,24 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
   "selectedModel": "qwen3-coder-plus"
 }</pre>
     </div>
-    <p class="desc" style="margin-top:12px;color:var(--orange)">⚠ 请将 <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--orange)">sk-your-api-key-here</code> 替换为你的真实 API Key</p>
+    <p class="desc" style="margin-top:12px;color:var(--orange)">⚠ Replace <code style="background:var(--bg);padding:2px 6px;border-radius:4px;color:var(--orange)">sk-your-api-key-here</code> with your actual API Key</p>
   </div>
 
   <div class="config-section">
-    <h3>3. 支持的模型</h3>
-    <p class="desc">通过百炼 API 可使用以下模型：</p>
+    <h3>3. Supported Models</h3>
+    <p class="desc">Available models through Bailian API:</p>
     <div style="overflow-x:auto">
     <table class="model-table">
-      <thead><tr><th>模型</th><th>厂商</th><th>特点</th></tr></thead>
+      <thead><tr><th>Model</th><th>Provider</th><th>Features</th></tr></thead>
       <tbody>
-        <tr><td>qwen3.5-plus</td><td>通义千问</td><td>最新一代，综合能力强</td></tr>
-        <tr><td>qwen3-max</td><td>通义千问</td><td>旗舰模型，推理能力顶尖</td></tr>
-        <tr><td>qwen3-coder-next</td><td>通义千问</td><td>代码专精，下一代</td></tr>
-        <tr><td>qwen3-coder-plus</td><td>通义千问</td><td>代码专精，性价比高</td></tr>
-        <tr><td>MiniMax-M2.5</td><td>MiniMax</td><td>多模态，长上下文</td></tr>
-        <tr><td>glm-5</td><td>智谱 AI</td><td>最新一代 GLM</td></tr>
-        <tr><td>glm-4.7</td><td>智谱 AI</td><td>稳定可靠</td></tr>
-        <tr><td>kimi-k2.5</td><td>月之暗面</td><td>长文本理解</td></tr>
+        <tr><td>qwen3.5-plus</td><td>Qwen</td><td>Latest generation, strong overall capability</td></tr>
+        <tr><td>qwen3-max</td><td>Qwen</td><td>Flagship model, top reasoning ability</td></tr>
+        <tr><td>qwen3-coder-next</td><td>Qwen</td><td>Code-specialized, next generation</td></tr>
+        <tr><td>qwen3-coder-plus</td><td>Qwen</td><td>Code-specialized, cost-effective</td></tr>
+        <tr><td>MiniMax-M2.5</td><td>MiniMax</td><td>Multimodal, long context</td></tr>
+        <tr><td>glm-5</td><td>Zhipu AI</td><td>Latest GLM generation</td></tr>
+        <tr><td>glm-4.7</td><td>Zhipu AI</td><td>Stable and reliable</td></tr>
+        <tr><td>kimi-k2.5</td><td>Moonshot</td><td>Long text understanding</td></tr>
       </tbody>
     </table>
     </div>
@@ -331,14 +331,14 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section style="background:var(--bg2)">
 <div class="container">
   <div class="section-title">
-    <h2>新人专享福利</h2>
-    <p>阿里云百炼 API 限时优惠 — 大模型入门套餐首购低至 4.5 折</p>
+    <h2>New User Exclusive Offer</h2>
+    <p>Alibaba Cloud Bailian API Limited-Time Discount — LLM Starter Package up to 55% off</p>
   </div>
   <div class="promo-card">
-    <h3>阿里云百炼 API 优惠</h3>
-    <div class="price">4.5 折<small> 起</small></div>
-    <p class="desc">大模型入门套餐首购优惠，支持通义千问、GLM、Kimi 等多个国产大模型，新用户专享</p>
-    <a href="https://www.aliyun.com/benefit/ai/aistar?userCode=yu1wt9j8&clubBiz=subTask..12387163..10263.." target="_blank" class="btn">立即领取</a>
+    <h3>Alibaba Cloud Bailian API Discount</h3>
+    <div class="price">Up to 55%<small> off</small></div>
+    <p class="desc">LLM starter package first-purchase discount, supports Qwen, GLM, Kimi and other Chinese LLMs, exclusive for new users</p>
+    <a href="https://www.aliyun.com/benefit/ai/aistar?userCode=yu1wt9j8&clubBiz=subTask..12387163..10263.." target="_blank" class="btn">Claim Now</a>
   </div>
 </div>
 </section>
@@ -347,16 +347,16 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section id="commands">
 <div class="container">
   <div class="section-title">
-    <h2>常用命令</h2>
-    <p>全生命周期管理，一个脚本搞定</p>
+    <h2>Common Commands</h2>
+    <p>Full lifecycle management with a single script</p>
   </div>
   <div class="cmd-grid">
-    <div class="cmd-item"><div class="cmd-name">install</div><div class="cmd-desc">全新安装，构建镜像并启动服务</div></div>
-    <div class="cmd-item"><div class="cmd-name">uninstall</div><div class="cmd-desc">停止并移除容器（加 --purge 删除安装目录）</div></div>
-    <div class="cmd-item"><div class="cmd-name">restart</div><div class="cmd-desc">重启容器，配置修改后执行此命令生效</div></div>
-    <div class="cmd-item"><div class="cmd-name">upgrade</div><div class="cmd-desc">热更新 OpenClaw 到最新版，无需重建镜像</div></div>
-    <div class="cmd-item"><div class="cmd-name">status</div><div class="cmd-desc">查看容器运行状态</div></div>
-    <div class="cmd-item"><div class="cmd-name">logs --tail 200</div><div class="cmd-desc">查看最近 200 行日志，快速定位问题</div></div>
+    <div class="cmd-item"><div class="cmd-name">install</div><div class="cmd-desc">Fresh installation, build image and start service</div></div>
+    <div class="cmd-item"><div class="cmd-name">uninstall</div><div class="cmd-desc">Stop and remove container (add --purge to delete install directory)</div></div>
+    <div class="cmd-item"><div class="cmd-name">restart</div><div class="cmd-desc">Restart container, run after config changes to take effect</div></div>
+    <div class="cmd-item"><div class="cmd-name">upgrade</div><div class="cmd-desc">Hot update OpenClaw to latest version without rebuilding image</div></div>
+    <div class="cmd-item"><div class="cmd-name">status</div><div class="cmd-desc">Check container running status</div></div>
+    <div class="cmd-item"><div class="cmd-name">logs --tail 200</div><div class="cmd-desc">View last 200 lines of logs for quick troubleshooting</div></div>
   </div>
 </div>
 </section>
@@ -365,16 +365,16 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <section id="faq" style="background:var(--bg2)">
 <div class="container">
   <div class="section-title">
-    <h2>常见问题</h2>
+    <h2>FAQ</h2>
   </div>
   <div class="faq-list">
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">构建失败或需要清除缓存？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">使用 <code>--no-cache</code> 参数禁用 Docker 构建缓存：<code>./openclaw-kasmvnc-zh.sh install --no-cache</code>（Windows 用 <code>-NoCache</code>）。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">端口被占用怎么办？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">安装时指定其他端口：<code>--gateway-port 28789 --https-port 9443</code>（Windows 用 <code>-GatewayPort 28789 -HttpsPort 9443</code>），然后重新 install。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">KasmVNC 提示 HTTPS 证书不安全？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">默认使用容器自签名证书，属于正常现象。在浏览器选择"继续访问"即可，或自行配置反向代理（Nginx / Caddy）。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">中文输入法没有激活？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">旧卷配置冲突导致。在宿主机执行 <code>upgrade</code>，然后在 VNC 终端执行 <code>rm -rf ~/.config/fcitx5 ~/.local/share/fcitx5/rime/default.custom.yaml</code>，最后从桌面菜单 Log Out 并刷新页面重新进入。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">进入桌面后黑屏？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">依次尝试：<code>restart</code> → <code>status</code> → <code>logs --tail 200</code> → <code>upgrade</code>。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">macOS 上出现 chown: Operation not permitted？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">macOS M 系列部分挂载路径会出现此提示，容器运行正常则可安全忽略。</div></div></div>
-    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">为什么用 Chromium 而不是 Chrome？<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">三个原因：1) 多架构兼容 — Google 未提供 ARM64 Chrome；2) 版权合规 — Chrome 含闭源插件；3) 依赖纯净 — apt 安装的 Chromium 与系统库无缝兼容。</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Build failed or need to clear cache?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Use <code>--no-cache</code> parameter to disable Docker build cache: <code>./openclaw-kasmvnc.sh install --no-cache</code> (Windows use <code>-NoCache</code>).</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Port already in use?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Specify different ports during installation: <code>--gateway-port 28789 --https-port 9443</code> (Windows use <code>-GatewayPort 28789 -HttpsPort 9443</code>), then reinstall.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">KasmVNC shows HTTPS certificate warning?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Default uses container self-signed certificate, this is normal. Click "Continue" in browser, or configure your own reverse proxy (Nginx / Caddy).</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Chinese input method not activated?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Caused by old volume config conflict. Run <code>upgrade</code> on host, then in VNC terminal run <code>rm -rf ~/.config/fcitx5 ~/.local/share/fcitx5/rime/default.custom.yaml</code>, finally Log Out from desktop menu and refresh page to re-enter.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Black screen after entering desktop?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Try in order: <code>restart</code> → <code>status</code> → <code>logs --tail 200</code> → <code>upgrade</code>.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">macOS shows "chown: Operation not permitted"?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Some mount paths on macOS M-series may show this message, safe to ignore if container runs normally.</div></div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Why Chromium instead of Chrome?<span class="arrow">▼</span></div><div class="faq-a"><div class="faq-a-inner">Three reasons: 1) Multi-arch compatibility — Google doesn't provide ARM64 Chrome; 2) License compliance — Chrome contains closed-source plugins; 3) Clean dependencies — apt-installed Chromium integrates seamlessly with system libraries.</div></div></div>
   </div>
 </div>
 </section>
@@ -382,20 +382,20 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <!-- Footer -->
 <footer>
 <div class="container">
-  <p>© 2025 OpenClaw 云桌面. Released under the MIT License.</p>
+  <p>© 2025 OpenClaw Cloud Desktop. Released under the MIT License.</p>
 </div>
 </footer>
 
 <script>
 function copyText(id,btn){
   navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
-  btn.textContent='已复制';btn.classList.add('copied');
-  setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied')},2000);
+  btn.textContent='Copied';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied')},2000);
 }
 function copyCode(id,btn){
   navigator.clipboard.writeText(document.getElementById(id).textContent.trim());
-  btn.textContent='已复制';btn.classList.add('copied');
-  setTimeout(()=>{btn.textContent='复制';btn.classList.remove('copied')},2000);
+  btn.textContent='Copied';btn.classList.add('copied');
+  setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied')},2000);
 }
 function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
