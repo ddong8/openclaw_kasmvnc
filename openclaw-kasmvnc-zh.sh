@@ -568,7 +568,7 @@ if [ -n "${KASMVNC_PASSWORD}" ]; then
 fi
 
 # ── 清理残留的 VNC/X11 状态（防止容器重启后黑屏）──
-if vncserver -list 2>/dev/null | grep -Eq "^[:space:]*${DISPLAY}[:space:]"; then
+if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
 pkill -9 -f "Xvnc.*${DISPLAY}" 2>/dev/null || true

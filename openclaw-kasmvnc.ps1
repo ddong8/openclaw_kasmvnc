@@ -370,7 +370,7 @@ if [ -n "${KASMVNC_PASSWORD}" ]; then
 fi
 
 # Clean up stale VNC/X11 state from previous container runs
-if vncserver -list 2>/dev/null | grep -Eq "^[:space:]*${DISPLAY}[:space:]"; then
+if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
 pkill -9 -f "Xvnc.*${DISPLAY}" 2>/dev/null || true
