@@ -128,6 +128,7 @@ chmod +x ./openclaw-kasmvnc-zh.sh
 | 网关 Token | `-GatewayToken` | `--gateway-token` | 自动生成 |
 | VNC 密码 | `-KasmPassword` | `--kasm-password` | 自动生成 |
 | 系统代理 | `-Proxy` | `--proxy` | 无 |
+| 禁用 Docker-in-Docker | `-NoDinD` | `--no-dind` | 否 |
 | 日志行数 | `-Tail` | `--tail` | `200` |
 | 禁用构建缓存 | `-NoCache` | `--no-cache` | 否 |
 | 清除安装目录 | `-Purge` | `--purge` | 否 |
@@ -173,6 +174,26 @@ powershell -ExecutionPolicy Bypass -File .\openclaw-kasmvnc-zh.ps1 -Command inst
 ```env
 OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 ```
+
+</details>
+
+<details>
+<summary>禁用 Docker-in-Docker（更安全）</summary>
+
+默认情况下，容器会安装 Docker CE 并以 privileged 模式运行，以支持 Docker-in-Docker。如果你不需要 OpenClaw 管理子容器，可以禁用 DinD 以提高安全性：
+
+```bash
+# Linux/macOS
+./openclaw-kasmvnc-zh.sh install --no-dind
+
+# Windows
+powershell -ExecutionPolicy Bypass -File .\openclaw-kasmvnc-zh.ps1 -Command install -NoDinD
+```
+
+启用 `--no-dind` 后：
+- 容器内不会安装 Docker CE
+- 容器不需要 `privileged: true` 权限（更安全）
+- OpenClaw 无法创建或管理子容器
 
 </details>
 

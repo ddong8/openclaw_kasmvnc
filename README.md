@@ -127,6 +127,7 @@ chmod +x ./openclaw-kasmvnc.sh
 | Gateway token | `-GatewayToken` | `--gateway-token` | Auto-generated |
 | VNC password | `-KasmPassword` | `--kasm-password` | Auto-generated |
 | HTTP proxy | `-Proxy` | `--proxy` | None |
+| Disable Docker-in-Docker | `-NoDinD` | `--no-dind` | No |
 | Log lines | `-Tail` | `--tail` | `200` |
 | Purge install dir | `-Purge` | `--purge` | No |
 
@@ -171,6 +172,26 @@ You can also edit `.env` after install and `restart` to apply:
 ```env
 OPENCLAW_HTTP_PROXY=http://192.168.1.131:10808
 ```
+
+</details>
+
+<details>
+<summary>Disable Docker-in-Docker (more secure)</summary>
+
+By default, the container installs Docker CE and runs in privileged mode to support Docker-in-Docker. If you don't need OpenClaw to manage child containers, you can disable DinD for better security:
+
+```bash
+# Linux/macOS
+./openclaw-kasmvnc.sh install --no-dind
+
+# Windows
+powershell -ExecutionPolicy Bypass -File .\openclaw-kasmvnc.ps1 -Command install -NoDinD
+```
+
+When `--no-dind` is enabled:
+- Docker CE is not installed in the container
+- Container runs without `privileged: true` (more secure)
+- OpenClaw cannot create or manage child containers
 
 </details>
 
