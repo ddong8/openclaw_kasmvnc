@@ -19,7 +19,7 @@ set -euo pipefail
 
 # ── 全局默认参数 ──────────────────────────────────────────────────────────────
 COMMAND="${1:-install}"          # 子命令，默认 install
-if [[ $# -gt 0 ]]; then
+if [ $# -gt 0 ]; then
   shift
 fi
 
@@ -89,7 +89,7 @@ upsert_env_line() {
   local file="$1"
   local key="$2"
   local val="$3"
-  if [[ ! -f "$file" ]]; then
+  if [ ! -f "$file" ]; then
     printf '%s=%s\n' "$key" "$val" >"$file"
     return
   fi
@@ -103,7 +103,7 @@ upsert_env_line() {
 
 # ── 命令行参数解析 ────────────────────────────────────────────────────────────
 parse_args() {
-  while [[ $# -gt 0 ]]; do
+  while [ $# -gt 0 ]; do
     case "$1" in
       --install-dir)
         INSTALL_DIR="${2:?missing value for --install-dir}"
@@ -225,7 +225,7 @@ services:
 EOF
 
   # 动态检测宿主机是否有 NVIDIA GPU，如果有则自动注入 GPU 支持配置
-  if command -v nvidia-smi >/dev/null 2>&1 || [[ "${OPENCLAW_ENABLE_GPU:-0}" == "1" ]]; then
+  if command -v nvidia-smi >/dev/null 2>&1 || [ "${OPENCLAW_ENABLE_GPU:-0}" == "1" ]; then
     cat >>"$d/docker-compose.yml" <<'EOF'
     deploy:
       resources:
@@ -562,13 +562,13 @@ if command -v /usr/lib/kasmvncserver/select-de.sh >/dev/null 2>&1; then
 fi
 
 # 设置 VNC 登录密码
-if [[ -n "${KASMVNC_PASSWORD}" ]]; then
+if [ -n "${KASMVNC_PASSWORD}" ]; then
   printf '%s\n%s\n' "${KASMVNC_PASSWORD}" "${KASMVNC_PASSWORD}" \
     | vncpasswd -u "${KASMVNC_USER}" -w -r >/dev/null || true
 fi
 
 # ── 清理残留的 VNC/X11 状态（防止容器重启后黑屏）──
-if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
+if vncserver -list 2>/dev/null | grep -Eq "^[:space:]*${DISPLAY}[:space:]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
 pkill -9 -f "Xvnc.*${DISPLAY}" 2>/dev/null || true
@@ -612,13 +612,13 @@ unset OPENCLAW_NO_RESPAWN 2>/dev/null || true
 # 注意：不会因为 STOP_MARKER 而退出循环，只是暂停启动
 while true; do
   # 检查停止标记：如果存在则等待它被清除
-  while [[ -f /tmp/openclaw-gateway.stopped ]]; do
+  while [ -f /tmp/openclaw-gateway.stopped ]; do
     sleep 1
   done
 
   # 从 package.json 读取版本号并导出
   ver="$(node -p "require('/usr/local/lib/node_modules/openclaw/package.json').version" 2>/dev/null || true)"
-  if [[ -n "$ver" ]]; then export OPENCLAW_VERSION="$ver"; fi
+  if [ -n "$ver" ]; then export OPENCLAW_VERSION="$ver"; fi
 
   # 启动 gateway（前台运行）
   if command -v openclaw >/dev/null 2>&1; then
@@ -634,7 +634,7 @@ while true; do
 
   # exit 0 = 正常重启（SIGUSR1 supervised），短暂等待后重启
   # 非零退出 = 异常崩溃，等待更长时间后重试
-  if [[ $rc -eq 0 ]]; then
+  if [ $rc -eq 0 ]; then
     echo "kasmvnc-startup: gateway exited (supervised restart), restarting..." >&2
     sleep 1
   else
@@ -670,7 +670,7 @@ STOP_MARKER="/tmp/openclaw-gateway.stopped"
 # 导致服务进程和 CLI 进程的命令行完全相同，无法通过 pgrep 区分
 find_gateway_pid() {
   pid="$(lsof -i :${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789} -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
-  if [[ -n "$pid" && "$pid" != "1" ]]; then
+  if [ -n "$pid" && "$pid" != "1" ]; then
     echo "$pid"
     return 0
   fi
@@ -683,7 +683,7 @@ find_gateway_pid() {
 resolve_openclaw_version() {
   local ver
   ver="$(node -p "require('/usr/local/lib/node_modules/openclaw/package.json').version" 2>/dev/null || true)"
-  if [[ -n "$ver" ]]; then export OPENCLAW_VERSION="$ver"; fi
+  if [ -n "$ver" ]; then export OPENCLAW_VERSION="$ver"; fi
 }
 
 # 等待网关进程启动就绪（检查端口监听）
@@ -692,7 +692,7 @@ wait_gateway_ready() {
   local pid
   for _ in $(seq 1 120); do
     pid="$(find_gateway_pid || true)"
-    [[ -n "$pid" ]] && return 0
+    [ -n "$pid" ] && return 0
     sleep 0.5
   done
   echo "systemctl shim: gateway failed to start (timeout waiting for port)" >&2
@@ -704,7 +704,7 @@ args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
     --version) echo "systemd 252 (shim)"; exit 0 ;;  # 伪装版本号
-    status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
+    status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [ -z "$action" ] && action="$a" ;;
   esac
 done
 
@@ -723,12 +723,12 @@ case "$action" in
   is-enabled)
     # 通过 marker 文件跟踪 install/uninstall 状态
     # 默认（无 marker）= 已启用，这样入口脚本启动的网关无需额外 "openclaw gateway install"
-    [[ -f "$DISABLED_MARKER" ]] && exit 1
+    [ -f "$DISABLED_MARKER" ] && exit 1
     exit 0 ;;
   is-active)
     # 检查网关进程是否在运行
     pid=$(find_gateway_pid || true)
-    [[ -n "$pid" ]] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
+    [ -n "$pid" ] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
   start)
     # 启动网关：清除停止和禁用标记，让主 supervisor 继续运行
     # 注意：主 supervisor 由 kasmvnc-startup.sh 启动，这里只是解除停止状态
@@ -737,7 +737,7 @@ case "$action" in
   restart)
     # 重启网关：杀掉当前 gateway，主 supervisor 会自动重启
     pid=$(find_gateway_pid || true)
-    if [[ -z "$pid" ]]; then
+    if [ -z "$pid" ]; then
       # 如果没有运行，清除标记让主 supervisor 启动
       rm -f "$DISABLED_MARKER" "$STOP_MARKER"
       wait_gateway_ready; exit $?
@@ -758,7 +758,7 @@ case "$action" in
     # 停止网关和 supervisor 循环（不影响 is-enabled 状态）
     touch "$STOP_MARKER"
     pid=$(find_gateway_pid || true)
-    [[ -z "$pid" ]] && exit 0
+    [ -z "$pid" ] && exit 0
     kill -TERM "$pid" 2>/dev/null || exit $?
     for _ in $(seq 1 60); do
       if ! kill -0 "$pid" 2>/dev/null; then exit 0; fi
@@ -769,7 +769,7 @@ case "$action" in
   show)
     # 输出 systemd 风格的属性信息（openclaw CLI 解析用）
     pid=$(find_gateway_pid || true)
-    if [[ -n "$pid" ]]; then
+    if [ -n "$pid" ]; then
       printf 'ActiveState=active\nSubState=running\nMainPID=%s\nExecMainStatus=0\nExecMainCode=exited\n' "$pid"
     else
       printf 'ActiveState=inactive\nSubState=dead\nMainPID=0\nExecMainStatus=0\nExecMainCode=exited\n'
@@ -785,17 +785,17 @@ SHIMEOF
 assert_gateway_running() {
   local cid
   cid="$(compose_cmd ps -q openclaw-gateway | head -n 1)"
-  if [[ -z "$cid" ]]; then
+  if [ -z "$cid" ]; then
     echo "openclaw-gateway container not found after compose operation." >&2
     exit 1
   fi
-  if [[ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null || echo false)" != "true" ]]; then
+  if [ "$(docker inspect -f '{{.State.Running}}' "$cid" 2>/dev/null || echo false)" != "true" ]; then
     echo "openclaw-gateway is not running (container: $cid)." >&2
     exit 1
   fi
   # Also verify the gateway process inside the container is alive
   local retries=0
-  while [[ $retries -lt 60 ]]; do
+  while [ $retries -lt 60 ]; do
     if docker exec "$cid" sh -c 'systemctl is-active openclaw-gateway' >/dev/null 2>&1; then
       return 0
     fi
@@ -808,7 +808,7 @@ assert_gateway_running() {
 
 # 检查安装目录是否存在，不存在则提示用户先执行 install
 require_install_dir() {
-  if [[ ! -d "$INSTALL_DIR" ]]; then
+  if [ ! -d "$INSTALL_DIR" ]; then
     echo "Install directory not found: $INSTALL_DIR" >&2
     echo "Run './openclaw-kasmvnc.sh install' first." >&2
     exit 1
@@ -865,7 +865,7 @@ install_cmd() {
         fi
       done
 
-      if [[ $download_success -eq 0 ]]; then
+      if [ $download_success -eq 0 ]; then
         echo "Failed to download image from all mirrors" >&2
         exit 1
       fi
@@ -874,10 +874,10 @@ install_cmd() {
     echo "Base image already exists locally"
   fi
 
-  if [[ -z "$GATEWAY_TOKEN" ]]; then
+  if [ -z "$GATEWAY_TOKEN" ]; then
     GATEWAY_TOKEN="$(random_hex 32)"
   fi
-  if [[ -z "$KASM_PASSWORD" ]]; then
+  if [ -z "$KASM_PASSWORD" ]; then
     KASM_PASSWORD="$(random_hex 16)"
   fi
 
@@ -887,7 +887,7 @@ install_cmd() {
   (
     cd "$INSTALL_DIR"
     mkdir -p .openclaw .openclaw/workspace
-    if [[ "$(uname -s)" == "Linux" ]]; then
+    if [ "$(uname -s)" == "Linux" ]; then
       chown -R 1000:1000 .openclaw 2>/dev/null || true
     fi
     upsert_env_line .env OPENCLAW_CONFIG_DIR "./.openclaw"
@@ -900,10 +900,10 @@ install_cmd() {
     upsert_env_line .env LANG "zh_CN.UTF-8"
     upsert_env_line .env LANGUAGE "zh_CN:zh"
     upsert_env_line .env LC_ALL "zh_CN.UTF-8"
-    if [[ -n "$HTTP_PROXY_URL" ]]; then
+    if [ -n "$HTTP_PROXY_URL" ]; then
       upsert_env_line .env OPENCLAW_HTTP_PROXY "$HTTP_PROXY_URL"
     fi
-    if [[ "$NO_CACHE" -eq 1 ]]; then
+    if [ "$NO_CACHE" -eq 1 ]; then
       compose_cmd build --no-cache openclaw-gateway
       compose_cmd up -d openclaw-gateway
     else
@@ -924,7 +924,7 @@ install_cmd() {
 # ── uninstall 命令 ────────────────────────────────────────────────────────────
 # 停止并移除容器；如果指定了 --purge 则同时删除安装目录
 uninstall_cmd() {
-  if [[ -d "$INSTALL_DIR" ]]; then
+  if [ -d "$INSTALL_DIR" ]; then
     (
       cd "$INSTALL_DIR"
       if command -v docker >/dev/null 2>&1; then
@@ -936,7 +936,7 @@ uninstall_cmd() {
     echo "Install directory not found: $INSTALL_DIR"
   fi
 
-  if [[ "$PURGE" -eq 1 ]]; then
+  if [ "$PURGE" -eq 1 ]; then
     rm -rf "$INSTALL_DIR"
     echo "Removed install directory: $INSTALL_DIR"
   else

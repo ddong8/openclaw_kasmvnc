@@ -83,7 +83,7 @@ function Upsert-EnvLine {
 }
 
 function Invoke-Compose {
-  param([Parameter(Mandatory = $true)][string[]]$ComposeArgs)
+  param([Parameter(Mandatory = $true)][string[]$ComposeArgs)
   & docker compose -f docker-compose.yml @ComposeArgs
   if ($LASTEXITCODE -ne 0) {
     throw "docker compose failed: $($ComposeArgs -join ' ')"
@@ -364,13 +364,13 @@ if command -v /usr/lib/kasmvncserver/select-de.sh >/dev/null 2>&1; then
   /usr/lib/kasmvncserver/select-de.sh -y -s XFCE >/tmp/openclaw-kasmvnc-selectde.log 2>&1 || true
 fi
 
-if [[ -n "${KASMVNC_PASSWORD}" ]]; then
+if [ -n "${KASMVNC_PASSWORD}" ]; then
   printf '%s\n%s\n' "${KASMVNC_PASSWORD}" "${KASMVNC_PASSWORD}" \
     | vncpasswd -u "${KASMVNC_USER}" -w -r >/dev/null || true
 fi
 
 # Clean up stale VNC/X11 state from previous container runs
-if vncserver -list 2>/dev/null | grep -Eq "^[[:space:]]*${DISPLAY}[[:space:]]"; then
+if vncserver -list 2>/dev/null | grep -Eq "^[:space:]*${DISPLAY}[:space:]"; then
   vncserver -kill "${DISPLAY}" >/dev/null 2>&1 || true
 fi
 pkill -9 -f "Xvnc.*${DISPLAY}" 2>/dev/null || true
@@ -407,13 +407,13 @@ unset OPENCLAW_NO_RESPAWN 2>/dev/null || true
 # Supervisor loop: auto-restart gateway on exit (with latest version)
 while true; do
   # Wait while stop marker is present
-  while [[ -f /tmp/openclaw-gateway.stopped ]]; do
+  while [ -f /tmp/openclaw-gateway.stopped ]; do
     sleep 1
   done
 
   # Read version from package.json and export
   ver="$(node -p "require('/usr/local/lib/node_modules/openclaw/package.json').version" 2>/dev/null || true)"
-  if [[ -n "$ver" ]]; then export OPENCLAW_VERSION="$ver"; fi
+  if [ -n "$ver" ]; then export OPENCLAW_VERSION="$ver"; fi
 
   # Start gateway (foreground)
   if command -v openclaw >/dev/null 2>&1; then
@@ -429,7 +429,7 @@ while true; do
 
   # exit 0 = supervised restart (SIGUSR1), brief wait before restart
   # non-zero = crash, longer wait before retry
-  if [[ $rc -eq 0 ]]; then
+  if [ $rc -eq 0 ]; then
     echo "kasmvnc-startup: gateway exited (supervised restart), restarting..." >&2
     sleep 1
   else
@@ -455,7 +455,7 @@ find_gateway_pid() {
   # This is the only reliable method because Node.js process.title overwrites
   # the entire /proc/PID/cmdline, making server and CLI processes indistinguishable.
   pid="$(lsof -i :${OPENCLAW_GATEWAY_INTERNAL_PORT:-18789} -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
-  if [[ -n "$pid" && "$pid" != "1" ]]; then
+  if [ -n "$pid" && "$pid" != "1" ]; then
     echo "$pid"
     return 0
   fi
@@ -466,14 +466,14 @@ find_gateway_pid() {
 resolve_openclaw_version() {
   local ver
   ver="$(node -p "require('/usr/local/lib/node_modules/openclaw/package.json').version" 2>/dev/null || true)"
-  if [[ -n "$ver" ]]; then export OPENCLAW_VERSION="$ver"; fi
+  if [ -n "$ver" ]; then export OPENCLAW_VERSION="$ver"; fi
 }
 
 wait_gateway_ready() {
   local pid
   for _ in $(seq 1 120); do
     pid="$(find_gateway_pid || true)"
-    [[ -n "$pid" ]] && return 0
+    [ -n "$pid" ] && return 0
     sleep 0.5
   done
   echo "systemctl shim: gateway failed to start (timeout waiting for port)" >&2
@@ -484,7 +484,7 @@ args=("$@"); action=""
 for a in "${args[@]}"; do
   case "$a" in
     --version) echo "systemd 252 (shim)"; exit 0 ;;
-    status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [[ -z "$action" ]] && action="$a" ;;
+    status|restart|start|stop|is-enabled|is-active|show|daemon-reload|enable|disable) [ -z "$action" ] && action="$a" ;;
   esac
 done
 
@@ -500,17 +500,17 @@ case "$action" in
   is-enabled)
     # Tracks install/uninstall state via marker file.
     # Default (no marker) = enabled, so entrypoint-started gateway works without "openclaw gateway install".
-    [[ -f "$DISABLED_MARKER" ]] && exit 1
+    [ -f "$DISABLED_MARKER" ] && exit 1
     exit 0 ;;
   is-active)
     pid=$(find_gateway_pid || true)
-    [[ -n "$pid" ]] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
+    [ -n "$pid" ] && { echo "active"; exit 0; } || { echo "inactive"; exit 3; } ;;
   start)
     rm -f "$DISABLED_MARKER" "$STOP_MARKER"
     wait_gateway_ready; exit $? ;;
   restart)
     pid=$(find_gateway_pid || true)
-    if [[ -z "$pid" ]]; then
+    if [ -z "$pid" ]; then
       rm -f "$DISABLED_MARKER" "$STOP_MARKER"
       wait_gateway_ready; exit $?
     fi
@@ -526,7 +526,7 @@ case "$action" in
   stop)
     touch "$STOP_MARKER"
     pid=$(find_gateway_pid || true)
-    [[ -z "$pid" ]] && exit 0
+    [ -z "$pid" ] && exit 0
     kill -TERM "$pid" 2>/dev/null || exit $?
     for _ in $(seq 1 60); do
       if ! kill -0 "$pid" 2>/dev/null; then exit 0; fi
@@ -536,7 +536,7 @@ case "$action" in
     exit 0 ;;
   show)
     pid=$(find_gateway_pid || true)
-    if [[ -n "$pid" ]]; then
+    if [ -n "$pid" ]; then
       printf 'ActiveState=active\nSubState=running\nMainPID=%s\nExecMainStatus=0\nExecMainCode=exited\n' "$pid"
     else
       printf 'ActiveState=inactive\nSubState=dead\nMainPID=0\nExecMainStatus=0\nExecMainCode=exited\n'
