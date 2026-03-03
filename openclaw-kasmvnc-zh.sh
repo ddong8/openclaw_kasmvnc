@@ -137,6 +137,10 @@ parse_args() {
         NO_CACHE=1
         shift
         ;;
+      --no-dind)
+        NO_DIND=1
+        shift
+        ;;
       --purge)
         PURGE=1
         shift
@@ -219,7 +223,16 @@ services:
       - "${OPENCLAW_GATEWAY_BRIDGE_PORT:-18790}:18790"
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
+EOF
+
+  # 如果未禁用 Docker-in-Docker，则添加 privileged: true
+  if [ "${NO_DIND:-0}" != "1" ]; then
+    cat >>"$d/docker-compose.yml" <<'EOF'
     privileged: true
+EOF
+  fi
+
+  cat >>"$d/docker-compose.yml" <<'EOF'
     init: true
     restart: unless-stopped
 EOF
@@ -325,6 +338,11 @@ RUN apt-get update \
   && locale-gen zh_CN.UTF-8 \
   && update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
+EOF
+
+  # 如果未禁用 Docker-in-Docker，则安装 Docker CE
+  if [ "${NO_DIND:-0}" != "1" ]; then
+    cat >>"$d/Dockerfile.kasmvnc" <<'EOF'
 
 # 安装 Docker CE 实现容器内 Docker（DinD），使用阿里云镜像源
 RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
@@ -334,6 +352,10 @@ RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dea
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
      docker-ce docker-ce-cli containerd.io docker-compose-plugin \
   && rm -rf /var/lib/apt/lists/*
+EOF
+  fi
+
+  cat >>"$d/Dockerfile.kasmvnc" <<'EOF'
 
 # 创建 chromium-kasm 包装脚本：以无沙箱模式启动 Chromium 并开启远程调试端口
 # 同时修改桌面快捷方式指向此包装脚本，并创建自定义 .desktop 文件
@@ -397,12 +419,13 @@ RUN curl -fsSL https://claw.ihasy.com/mirror/rime-ice/rime-ice.tar.gz -o /tmp/ri
 
 # 复制 systemctl shim 和 KasmVNC 启动脚本到容器内
 # 清理 Windows 换行符，设置可执行权限
-# 将 node 用户加入 ssl-cert 和 docker 组，配置免密 sudo
+# 将 node 用户加入 ssl-cert 组（如果启用 DinD 则也加入 docker 组），配置免密 sudo
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && chmod +x /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
-  && usermod -a -G ssl-cert,docker node \
+  && usermod -a -G ssl-cert node \
+  && (getent group docker >/dev/null && usermod -a -G docker node || true) \
   && echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Register Fcitx5 as the system default input method framework
