@@ -132,6 +132,10 @@ parse_args() {
         NO_CACHE=1
         shift
         ;;
+      --no-dind)
+        NO_DIND=1
+        shift
+        ;;
       --purge)
         PURGE=1
         shift
@@ -208,7 +212,16 @@ services:
       - "${OPENCLAW_GATEWAY_BRIDGE_PORT:-18790}:18790"
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
+EOF
+
+  # If Docker-in-Docker is not disabled, add privileged: true
+  if [ "${NO_DIND:-0}" != "1" ]; then
+    cat >>"$d/docker-compose.yml" <<'EOF'
     privileged: true
+EOF
+  fi
+
+  cat >>"$d/docker-compose.yml" <<'EOF'
     init: true
     restart: unless-stopped
 EOF
@@ -287,6 +300,11 @@ RUN apt-get update \
   && locale-gen en_US.UTF-8 \
   && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
+EOF
+
+  # If Docker-in-Docker is not disabled, install Docker CE
+  if [ "${NO_DIND:-0}" != "1" ]; then
+    cat >>"$d/Dockerfile.kasmvnc" <<'EOF'
 
 # Install Docker CE for Docker-in-Docker support
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
@@ -296,6 +314,10 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
      docker-ce docker-ce-cli containerd.io docker-compose-plugin \
   && rm -rf /var/lib/apt/lists/*
+EOF
+  fi
+
+  cat >>"$d/Dockerfile.kasmvnc" <<'EOF'
 
 # Create chromium-kasm wrapper script and update desktop shortcuts
 RUN printf '%s\n' \
@@ -347,7 +369,8 @@ COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && chmod +x /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
-  && usermod -a -G ssl-cert,docker node \
+  && usermod -a -G ssl-cert node \
+  && (getent group docker >/dev/null && usermod -a -G docker node || true) \
   && echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 USER node

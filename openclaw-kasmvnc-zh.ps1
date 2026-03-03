@@ -27,7 +27,8 @@ param(
   [int]$Tail = 200,                       # logs 命令默认显示行数
   [string]$Proxy = "",                    # 容器内 HTTP 代理地址
   [switch]$NoCache,                       # 禁用 Docker 构建缓存
-  [switch]$Purge                          # 卸载时是否删除安装目录
+  [switch]$Purge,                         # 卸载时是否删除安装目录
+  [switch]$NoDinD                         # 禁用 Docker-in-Docker（不安装 Docker CE，不需要 privileged 模式）
 )
 
 # 遇到错误立即终止脚本执行
@@ -120,6 +121,7 @@ services:
         HTTP_PROXY: ${OPENCLAW_HTTP_PROXY:-}
         HTTPS_PROXY: ${OPENCLAW_HTTP_PROXY:-}
         OPENC_CACHE_BUST: ${OPENC_CACHE_BUST:-1}
+        NO_DIND: ${NO_DIND:-0}
     image: ${OPENCLAW_KASMVNC_IMAGE:-openclaw:kasmvnc}
     command:
       [
@@ -157,7 +159,15 @@ services:
       - "${OPENCLAW_GATEWAY_BRIDGE_PORT:-18790}:18790"
       - "${OPENCLAW_KASMVNC_HTTPS_PORT:-8443}:8444"
     shm_size: '2gb'
-    privileged: true
+'@
+
+  # 仅在未禁用 DinD 时添加 privileged: true
+  if (-not $NoDinD) {
+    $composeYaml += "`n    privileged: true"
+  }
+
+  $composeYaml += @'
+
     init: true
     restart: unless-stopped
 '@
@@ -258,14 +268,17 @@ RUN apt-get update \
   && update-locale LANG=zh_CN.UTF-8 LC_ALL=zh_CN.UTF-8 \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CE for Docker-in-Docker support using Aliyun mirror
-RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+# Install Docker CE for Docker-in-Docker support using Aliyun mirror (only if NO_DIND != 1)
+ARG NO_DIND=0
+RUN if [ "${NO_DIND}" != "1" ]; then \
+  curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.aliyun.com/docker-ce/linux/debian bookworm stable" \
      > /etc/apt/sources.list.d/docker.list \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
      docker-ce docker-ce-cli containerd.io docker-compose-plugin \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/*; \
+fi
 
 RUN printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -327,7 +340,8 @@ COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && chmod +x /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
-  && usermod -a -G ssl-cert,docker node \
+  && usermod -a -G ssl-cert node \
+  && (getent group docker >/dev/null && usermod -a -G docker node || true) \
   && echo "node ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Register Fcitx5 as the system default input method framework
@@ -792,6 +806,9 @@ function Install-Command {
     Upsert-EnvLine -FilePath ".env" -Key "LANG" -Value "zh_CN.UTF-8"
     Upsert-EnvLine -FilePath ".env" -Key "LANGUAGE" -Value "zh_CN:zh"
     Upsert-EnvLine -FilePath ".env" -Key "LC_ALL" -Value "zh_CN.UTF-8"
+    if ($NoDinD) {
+      Upsert-EnvLine -FilePath ".env" -Key "NO_DIND" -Value "1"
+    }
     if ($Proxy -ne "") {
       Upsert-EnvLine -FilePath ".env" -Key "OPENCLAW_HTTP_PROXY" -Value $Proxy
     }
