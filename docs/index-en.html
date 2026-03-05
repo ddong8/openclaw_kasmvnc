@@ -159,6 +159,15 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
   .promo-card .price{font-size:2rem}
   .cmd-item{padding:16px}
 }
+
+/* Image Lightbox */
+.screenshot-img{cursor:pointer;transition:transform .2s,box-shadow .2s}
+.screenshot-img:hover{transform:scale(1.02);box-shadow:0 12px 32px rgba(0,0,0,.6)}
+.lightbox{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.95);z-index:9999;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
+.lightbox.show{display:flex}
+.lightbox img{max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.8)}
+.lightbox-close{position:absolute;top:20px;right:30px;color:#fff;font-size:40px;font-weight:300;cursor:pointer;transition:color .2s;line-height:1;user-select:none}
+.lightbox-close:hover{color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -209,7 +218,7 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
 <!-- Screenshot -->
 <section style="padding:60px 0;background:var(--bg2)">
 <div class="container">
-  <img src="screenshot-desktop.jpg" alt="OpenClaw Desktop Environment Screenshot" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.4)">
+  <img src="screenshot-desktop.jpg" alt="OpenClaw Desktop Environment Screenshot" class="screenshot-img" onclick="openLightbox(this.src)" style="width:100%;border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.4)">
 </div>
 </section>
 
@@ -446,6 +455,24 @@ document.querySelectorAll('.lang-dropdown a').forEach(a=>{
     localStorage.setItem('langPreference', 'manual');
   });
 });
+// Lightbox functions
+function openLightbox(src){
+  const lb=document.getElementById('lightbox');
+  document.getElementById('lightboxImg').src=src;
+  lb.classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+  document.body.style.overflow='';
+}
 </script>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+  <img id="lightboxImg" src="" alt="Full screen view" onclick="event.stopPropagation()">
+</div>
+
 </body>
 </html>
