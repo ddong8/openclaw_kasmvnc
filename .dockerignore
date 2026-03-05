@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+README-zh.md
+CLAUDE.md
+*.md
+!DOCKER.md
+
+# Scripts (not needed in image)
+openclaw-kasmvnc.sh
+openclaw-kasmvnc-zh.sh
+openclaw-kasmvnc.ps1
+openclaw-kasmvnc-zh.ps1
+
+# Website
+docs/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+tmp/
+temp/
