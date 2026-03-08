@@ -387,7 +387,7 @@ RESOLUTION="${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}"
 DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}"" "${HOME}/.openclaw"
-chmod 700 "`${HOME}/.vnc" "`${XDG_RUNTIME_DIR}"" "${HOME}/.openclaw"
+chmod 700 "`${HOME}/.vnc" "`${XDG_RUNTIME_DIR}"" "${HOME}/.openclaw" 2>/dev/null || true
 
 # Start Docker daemon in background for DinD support (only if NO_DIND != 1)
 if [ "${NO_DIND:-0}" != "1" ] && command -v dockerd >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
