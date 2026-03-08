@@ -384,7 +384,7 @@ EXPOSE 18789 18790 8443 8444
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:18789/ || exit 1
 
-ENTRYPOINT ["kasmvnc-startup"]
+ENTRYPOINT ["/usr/local/bin/kasmvnc-startup"]
 CMD ["openclaw", "gateway", "--bind", "lan", "--port", "18789"]
 EOF
 
