@@ -119,9 +119,9 @@ jobs:
           echo "Checking gateway port..."
           docker exec test-container sh -c "curl -f http://localhost:18789/ || exit 1"
 
-          # Check VNC port is listening
+          # Check VNC port is listening (401 is expected due to auth requirement)
           echo "Checking VNC port..."
-          docker exec test-container sh -c "curl -k -f https://localhost:8444/ || exit 1"
+          docker exec test-container sh -c "curl -k -s -o /dev/null -w '%{http_code}' https://localhost:8444/ | grep -E '^(200|401)$' || exit 1"
 
           # Verify NO_DIND behavior
           if [ "${{ matrix.variant.no_dind }}" = "1" ]; then
