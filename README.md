@@ -331,7 +331,7 @@ This warning may appear on Apple Silicon Macs for certain mount paths. If the co
 2. **License** -- Chrome includes proprietary components (DRM, etc.) unsuitable for public images
 3. **Clean dependencies** -- `apt install chromium` integrates cleanly with system libraries
 
-### 7. Too many logs
+### 8. Too many logs
 
 Use `logs --tail 200` for recent output, `logs --tail 50` to quickly spot errors.
 
