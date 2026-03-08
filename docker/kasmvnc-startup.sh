@@ -191,13 +191,20 @@ if command -v xdg-settings >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" xdg-settings set default-web-browser chromium-kasm.desktop >/dev/null 2>&1 || true
 fi
 
-# ── 清理可能冲突的 OpenClaw 配置 ──
-# 如果配置文件存在且包含非 Linux 平台指纹，删除并重新生成
+# ── 清理配置文件中的平台指纹（保留 auth tokens）──
 if [ -f "${HOME}/.openclaw/openclaw.json" ]; then
-  if grep -q '"pinnedPlatform".*"darwin"' "${HOME}/.openclaw/openclaw.json" 2>/dev/null || \
-     grep -q '"pinnedPlatform".*"win32"' "${HOME}/.openclaw/openclaw.json" 2>/dev/null; then
-    echo "Detected non-Linux platform config, resetting..." >&2
-    mv "${HOME}/.openclaw/openclaw.json" "${HOME}/.openclaw/openclaw.json.bak" 2>/dev/null || true
+  if command -v jq >/dev/null 2>&1; then
+    # Use jq to surgically remove only platform fields
+    jq 'del(.identity.pinnedPlatform, .identity.pinnedDeviceFamily)' \
+      "${HOME}/.openclaw/openclaw.json" > "${HOME}/.openclaw/openclaw.json.tmp" 2>/dev/null \
+      && mv "${HOME}/.openclaw/openclaw.json.tmp" "${HOME}/.openclaw/openclaw.json" || true
+  else
+    # Fallback: if non-Linux platform detected, backup entire config
+    if grep -q '"pinnedPlatform".*"darwin"' "${HOME}/.openclaw/openclaw.json" 2>/dev/null || \
+       grep -q '"pinnedPlatform".*"win32"' "${HOME}/.openclaw/openclaw.json" 2>/dev/null; then
+      echo "Detected non-Linux platform config, backing up..." >&2
+      mv "${HOME}/.openclaw/openclaw.json" "${HOME}/.openclaw/openclaw.json.bak" 2>/dev/null || true
+    fi
   fi
 fi
 
@@ -205,9 +212,6 @@ fi
 openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true >/dev/null 2>&1 || true
 # 强制设置 gateway bind 配置（覆盖可能的 loopback 配置）
 openclaw config set gateway.bind "${OPENCLAW_GATEWAY_BIND:-lan}" >/dev/null 2>&1 || true
-
-# 注册 gateway 服务（让 openclaw CLI 命令正常工作）
-openclaw gateway install >/dev/null 2>&1 || true
 
 # 直接前台运行 supervisor 循环（不走 systemctl，避免双重后台化）
 # 设置环境变量让 gateway 知道有 supervisor 管理

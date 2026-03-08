@@ -66,6 +66,7 @@ RUN apt-get update \
     fcitx5-frontend-qt5 \
     fcitx5-config-qt \
     im-config \
+    jq \
     libdatetime-perl \
     libegl1 \
     libglu1-mesa \
@@ -177,6 +178,24 @@ RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && mkdir -p /home/node/.openclaw /home/node/.vnc \
   && chown -R node:node /home/node/.openclaw /home/node/.vnc \
   && chmod 700 /home/node/.openclaw /home/node/.vnc
+
+# Create systemd service file for openclaw CLI compatibility
+RUN mkdir -p /home/node/.config/systemd/user \
+  && printf '%s\n' \
+    '[Unit]' \
+    'Description=OpenClaw Gateway (managed by supervisor)' \
+    'After=network-online.target' \
+    'Wants=network-online.target' \
+    '' \
+    '[Service]' \
+    'Type=notify' \
+    'ExecStart=/bin/true' \
+    'RemainAfterExit=yes' \
+    '' \
+    '[Install]' \
+    'WantedBy=default.target' \
+    > /home/node/.config/systemd/user/openclaw-gateway.service \
+  && chown -R node:node /home/node/.config
 
 # Register Fcitx5 as the system default input method framework
 RUN im-config -n fcitx5
