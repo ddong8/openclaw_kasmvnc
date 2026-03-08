@@ -55,12 +55,15 @@ git push origin v1.0.2
 - `ddong8/openclaw-kasmvnc:latest`
 - `ddong8/openclaw-kasmvnc:latest-intl`
 - `ddong8/openclaw-kasmvnc:latest-no-dind`
+- `ddong8/openclaw-kasmvnc:latest-intl-no-dind`
 - `ddong8/openclaw-kasmvnc:1.0.2-latest`
 - `ddong8/openclaw-kasmvnc:1.0.2-latest-intl`
 - `ddong8/openclaw-kasmvnc:1.0.2-latest-no-dind`
+- `ddong8/openclaw-kasmvnc:1.0.2-latest-intl-no-dind`
 - `ddong8/openclaw-kasmvnc:1.0-latest`
 - `ddong8/openclaw-kasmvnc:1.0-latest-intl`
 - `ddong8/openclaw-kasmvnc:1.0-latest-no-dind`
+- `ddong8/openclaw-kasmvnc:1.0-latest-intl-no-dind`
 
 ### 方式三：手动触发
 1. 访问 https://github.com/ddong8/openclaw-kasmvnc/actions

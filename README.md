@@ -147,6 +147,7 @@ chmod +x ./openclaw-kasmvnc.sh
 | VNC password | `-KasmPassword` | `--kasm-password` | Auto-generated |
 | HTTP proxy | `-Proxy` | `--proxy` | None |
 | Disable Docker-in-Docker | `-NoDinD` | `--no-dind` | No |
+| Disable Docker build cache | `-NoCache` | `--no-cache` | No |
 | Log lines | `-Tail` | `--tail` | `200` |
 | Purge install dir | `-Purge` | `--purge` | No |
 
@@ -290,27 +291,41 @@ Config files: `<install-dir>/openclaw/.env`, `<install-dir>/openclaw/.openclaw/o
 
 ## FAQ
 
-### 1. Port conflict
+### 1. Build fails with package installation errors?
+
+If you encounter errors during the Docker build process (e.g., `apt-get` failures), try rebuilding without cache:
+
+```bash
+# Windows
+.\openclaw-kasmvnc.ps1 install -NoCache
+
+# macOS/Linux
+./openclaw-kasmvnc.sh install --no-cache
+```
+
+This forces Docker to re-download all packages and can resolve transient network or repository issues.
+
+### 2. Port conflict
 
 Change ports at install time: Windows `-GatewayPort 28789 -HttpsPort 9443`, macOS/Linux `--gateway-port 28789 --https-port 9443`, then re-run `install`.
 
-### 2. HTTPS certificate warning
+### 3. HTTPS certificate warning
 
 KasmVNC uses a self-signed certificate by default. Click through the browser warning, or set up a reverse proxy (Nginx / Caddy) with a real cert.
 
-### 3. Black screen after entering desktop
+### 4. Black screen after entering desktop
 
 Try in order: `restart` → `status` → `logs --tail 200` → `upgrade`.
 
-### 4. Container restart loop
+### 5. Container restart loop
 
 Common causes: missing `.env` parameters, directory permission issues, port conflicts. Re-run `install` or change ports.
 
-### 5. macOS `chown: Operation not permitted`
+### 6. macOS `chown: Operation not permitted`
 
 This warning may appear on Apple Silicon Macs for certain mount paths. If the container runs fine, it can be safely ignored.
 
-### 6. Why Chromium instead of Chrome?
+### 7. Why Chromium instead of Chrome?
 
 1. **Multi-arch** -- Google does not ship ARM64 Chrome; Chromium supports both x86_64 and arm64
 2. **License** -- Chrome includes proprietary components (DRM, etc.) unsuitable for public images
