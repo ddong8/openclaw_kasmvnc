@@ -645,7 +645,12 @@ while true; do
 
   # 启动 gateway（前台运行）
   if command -v openclaw >/dev/null 2>&1; then
-    openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 >>/tmp/openclaw-gateway.log 2>&1
+    # 如果设置了 OPENCLAW_GATEWAY_TOKEN 则添加 --token 参数
+    if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+      openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 --token "${OPENCLAW_GATEWAY_TOKEN}" >>/tmp/openclaw-gateway.log 2>&1
+    else
+      openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 >>/tmp/openclaw-gateway.log 2>&1
+    fi
   elif command -v openclaw-gateway >/dev/null 2>&1; then
     openclaw-gateway --port 18789 >>/tmp/openclaw-gateway.log 2>&1
   else

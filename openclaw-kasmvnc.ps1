@@ -431,7 +431,12 @@ while true; do
 
   # Start gateway (foreground)
   if command -v openclaw >/dev/null 2>&1; then
-    openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 >>/tmp/openclaw-gateway.log 2>&1
+    # Add --token parameter if OPENCLAW_GATEWAY_TOKEN is set
+    if [ -n "${OPENCLAW_GATEWAY_TOKEN:-}" ]; then
+      openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 --token "${OPENCLAW_GATEWAY_TOKEN}" >>/tmp/openclaw-gateway.log 2>&1
+    else
+      openclaw gateway --allow-unconfigured --bind "${OPENCLAW_GATEWAY_BIND:-lan}" --port 18789 >>/tmp/openclaw-gateway.log 2>&1
+    fi
   elif command -v openclaw-gateway >/dev/null 2>&1; then
     openclaw-gateway --port 18789 >>/tmp/openclaw-gateway.log 2>&1
   else
