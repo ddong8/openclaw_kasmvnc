@@ -515,8 +515,20 @@ if command -v xdg-settings >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" xdg-settings set default-web-browser chromium-kasm.desktop >/dev/null 2>&1 || true
 fi
 
+# Clean up conflicting OpenClaw config
+# If config file exists and contains non-Linux platform fingerprint, reset it
+if [ -f "\${HOME}/.openclaw/openclaw.json" ]; then
+  if grep -q '"pinnedPlatform".*"darwin"' "\${HOME}/.openclaw/openclaw.json" 2>/dev/null || \\
+     grep -q '"pinnedPlatform".*"win32"' "\${HOME}/.openclaw/openclaw.json" 2>/dev/null; then
+    echo "Detected non-Linux platform config, resetting..." >&2
+    mv "\${HOME}/.openclaw/openclaw.json" "\${HOME}/.openclaw/openclaw.json.bak" 2>/dev/null || true
+  fi
+fi
+
 # Allow Host-header origin fallback for remote access
 openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true >/dev/null 2>&1 || true
+# Force set gateway bind config (override possible loopback config)
+openclaw config set gateway.bind "\${OPENCLAW_GATEWAY_BIND:-lan}" >/dev/null 2>&1 || true
 
 # Run supervisor loop in foreground (bypass systemctl to avoid double-backgrounding)
 export OPENCLAW_SERVICE_MARKER=1

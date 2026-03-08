@@ -538,7 +538,17 @@ if command -v xdg-settings >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" xdg-settings set default-web-browser chromium-kasm.desktop >/dev/null 2>&1 || true
 fi
 
+# ── 清理可能冲突的 OpenClaw 配置 ──
+if [ -f "`${HOME}/.openclaw/openclaw.json" ]; then
+  if grep -q '\"pinnedPlatform\".*\"darwin\"' "`${HOME}/.openclaw/openclaw.json" 2>/dev/null || \
+     grep -q '\"pinnedPlatform\".*\"win32\"' "`${HOME}/.openclaw/openclaw.json" 2>/dev/null; then
+    echo "Detected non-Linux platform config, resetting..." >&2
+    mv "`${HOME}/.openclaw/openclaw.json" "`${HOME}/.openclaw/openclaw.json.bak" 2>/dev/null || true
+  fi
+fi
+
 openclaw config set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback true >/dev/null 2>&1 || true
+openclaw config set gateway.bind "`${OPENCLAW_GATEWAY_BIND:-lan}" >/dev/null 2>&1 || true
 
 # 直接前台运行 supervisor 循环（不走 systemctl，避免双重后台化）
 # 设置环境变量让 gateway 知道有 supervisor 管理
