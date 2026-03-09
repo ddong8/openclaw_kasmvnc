@@ -382,6 +382,11 @@ RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
 
 USER node
 
+# Configure git to use HTTPS instead of SSH (supports npm dependencies and openclaw update)
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global url."https://".insteadOf "git://"
+
 EXPOSE 18789 18790 8443 8444
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

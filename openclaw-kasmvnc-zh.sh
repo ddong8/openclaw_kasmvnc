@@ -439,6 +439,11 @@ RUN im-config -n fcitx5
 
 USER node
 
+# 配置 git 使用 HTTPS 替代 SSH（支持 npm 依赖和 openclaw update）
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global url."https://".insteadOf "git://"
+
 EXPOSE 18789 18790 8443 8444
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
