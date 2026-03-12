@@ -187,7 +187,7 @@ RUN set -eux; \
       > /etc/apt/sources.list.d/vscode.list; \
   fi; \
   apt-get update; \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing code; \
   rm -rf /var/lib/apt/lists/*
 
 # Create desktop icons for Chromium and VS Code

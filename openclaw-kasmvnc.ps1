@@ -307,7 +307,7 @@ RUN set -eux; \
   echo "deb [arch=`${vscode_arch} signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
     > /etc/apt/sources.list.d/vscode.list; \
   apt-get update; \
-  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing code; \
   rm -rf /var/lib/apt/lists/*
 
 # Create desktop icons for Chromium and VS Code
