@@ -332,6 +332,8 @@ RUN apt-get update \
     procps \
     sudo \
     tzdata \
+    vim \
+    wget \
     xfce4 \
     xfce4-terminal \
     xterm \
@@ -391,6 +393,27 @@ RUN printf '%s\n' \
     'Name=Chromium' \
     'Icon=chromium' \
     > /usr/share/xfce4/helpers/chromium-kasm.desktop
+
+# 安装 VS Code
+RUN set -eux; \
+  case "${TARGETARCH}" in \
+    amd64) vscode_arch="amd64" ;; \
+    arm64) vscode_arch="arm64" ;; \
+    *) echo "Unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg; \
+  echo "deb [arch=${vscode_arch} signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+    > /etc/apt/sources.list.d/vscode.list; \
+  apt-get update; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
+  rm -rf /var/lib/apt/lists/*
+
+# 创建 Chromium 和 VS Code 的桌面图标
+RUN mkdir -p /home/node/Desktop \
+  && cp /usr/share/applications/chromium-kasm.desktop /home/node/Desktop/chromium.desktop \
+  && cp /usr/share/applications/code.desktop /home/node/Desktop/vscode.desktop \
+  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop \
+  && chown -R node:node /home/node/Desktop
 
 # 根据目标架构（amd64/arm64）下载并安装对应版本的 KasmVNC .deb 包
 RUN set -eux; \

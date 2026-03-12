@@ -273,6 +273,20 @@ openclaw gateway status --probe   # Check status
 
 </details>
 
+## Pre-installed Tools
+
+The desktop environment comes with these development tools pre-installed:
+
+- **Chromium** - Web browser (desktop icon)
+- **Visual Studio Code** - Code editor (desktop icon)
+- **vim** - Terminal text editor
+- **Git** - Version control system
+- **Node.js 22** - JavaScript runtime
+- **npm** - Package manager
+- **Docker CE** - Container engine (DinD variants only)
+
+Desktop icons are located in `/home/node/Desktop` and can be launched with a double-click.
+
 ## Configuration Changes
 
 Config files: `<install-dir>/openclaw/.env`, `<install-dir>/openclaw/.openclaw/openclaw.json`

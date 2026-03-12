@@ -228,6 +228,8 @@ RUN apt-get update \
     procps \
     sudo \
     tzdata \
+    vim \
+    wget \
     xfce4 \
     xfce4-terminal \
     xterm \
@@ -294,6 +296,27 @@ RUN set -eux; \
   rm -f "/tmp/${pkg}"; \
   rm -rf /var/lib/apt/lists/*
 
+# Install VS Code
+RUN set -eux; \
+  case "`${TARGETARCH}" in \
+    amd64) vscode_arch="amd64" ;; \
+    arm64) vscode_arch="arm64" ;; \
+    *) echo "Unsupported TARGETARCH: `${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg; \
+  echo "deb [arch=`${vscode_arch} signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" \
+    > /etc/apt/sources.list.d/vscode.list; \
+  apt-get update; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
+  rm -rf /var/lib/apt/lists/*
+
+# Create desktop icons for Chromium and VS Code
+RUN mkdir -p /home/node/Desktop \
+  && cp /usr/share/applications/chromium-kasm.desktop /home/node/Desktop/chromium.desktop \
+  && cp /usr/share/applications/code.desktop /home/node/Desktop/vscode.desktop \
+  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop \
+  && chown -R node:node /home/node/Desktop
+
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
@@ -306,6 +329,11 @@ RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
   && chmod 700 /home/node/.openclaw /home/node/.vnc
 
 USER node
+
+# Configure git to use HTTPS instead of SSH (supports npm dependencies and openclaw update)
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global url."https://".insteadOf "git://"
 
 EXPOSE 18789 18790 8443 8444
 

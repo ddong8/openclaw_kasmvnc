@@ -260,6 +260,8 @@ RUN apt-get update \
     procps \
     sudo \
     tzdata \
+    vim \
+    wget \
     xfce4 \
     xfce4-terminal \
     xterm \
@@ -338,6 +340,27 @@ RUN curl -fsSL https://claw.ihasy.com/mirror/rime-ice/rime-ice.tar.gz -o /tmp/ri
     > /home/node/.local/share/fcitx5/rime/default.custom.yaml \
   && chown -R node:node /home/node/.local
 
+# 安装 VS Code
+RUN set -eux; \
+  case "`${TARGETARCH}" in \
+    amd64) vscode_arch="amd64" ;; \
+    arm64) vscode_arch="arm64" ;; \
+    *) echo "Unsupported TARGETARCH: `${TARGETARCH}" >&2; exit 1 ;; \
+  esac; \
+  wget -qO- https://mirrors.tuna.tsinghua.edu.cn/microsoft/keys/microsoft.asc | gpg --dearmor > /usr/share/keyrings/packages.microsoft.gpg; \
+  echo "deb [arch=`${vscode_arch} signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://mirrors.tuna.tsinghua.edu.cn/microsoft/repos/code stable main" \
+    > /etc/apt/sources.list.d/vscode.list; \
+  apt-get update; \
+  DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
+  rm -rf /var/lib/apt/lists/*
+
+# 创建 Chromium 和 VS Code 桌面图标
+RUN mkdir -p /home/node/Desktop \
+  && cp /usr/share/applications/chromium-kasm.desktop /home/node/Desktop/chromium.desktop \
+  && cp /usr/share/applications/code.desktop /home/node/Desktop/vscode.desktop \
+  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop \
+  && chown -R node:node /home/node/Desktop
+
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
 RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
@@ -353,6 +376,11 @@ RUN sed -i 's/\r$//' /usr/local/bin/systemctl /usr/local/bin/kasmvnc-startup \
 RUN im-config -n fcitx5
 
 USER node
+
+# 配置 git 使用 HTTPS 替代 SSH（支持 npm 依赖和 openclaw update）
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
+ && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
+ && git config --global url."https://".insteadOf "git://"
 
 EXPOSE 18789 18790 8443 8444
 

@@ -152,6 +152,20 @@ docker compose up -d
 | WebChat | `http://localhost:18789/chat?session=main` | `OPENCLAW_GATEWAY_TOKEN` |
 | KasmVNC 桌面 | `https://localhost:8443` | 用户名 `node`，密码 `OPENCLAW_KASMVNC_PASSWORD` |
 
+## 预装工具
+
+桌面环境预装了以下开发工具：
+
+- **Chromium** - 浏览器（桌面图标）
+- **Visual Studio Code** - 代码编辑器（桌面图标）
+- **vim** - 终端文本编辑器
+- **Git** - 版本控制工具
+- **Node.js 22** - JavaScript 运行时
+- **npm** - 包管理器
+- **Docker CE** - 容器引擎（仅 DinD 版本）
+
+桌面图标位于 `/home/node/Desktop`，双击即可启动应用。
+
 ## 常用命令
 
 ```bash
