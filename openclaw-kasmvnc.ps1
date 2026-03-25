@@ -46,6 +46,10 @@ function Set-UnixContent {
     [string]$Path,
     [string]$Value
   )
+  # Resolve relative paths against PowerShell's $PWD, not .NET's CurrentDirectory
+  if (-not [System.IO.Path]::IsPathRooted($Path)) {
+    $Path = Join-Path (Get-Location).Path $Path
+  }
   $lf = $Value -replace "`r`n", "`n"
   [System.IO.File]::WriteAllText($Path, $lf, [System.Text.UTF8Encoding]::new($false))
 }
@@ -64,6 +68,10 @@ function Upsert-EnvLine {
     [string]$Key,
     [string]$Value
   )
+  # Resolve relative paths against PowerShell's $PWD, not .NET's CurrentDirectory
+  if (-not [System.IO.Path]::IsPathRooted($FilePath)) {
+    $FilePath = Join-Path (Get-Location).Path $FilePath
+  }
   $line = "$Key=$Value"
   $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
   if (-not (Test-Path $FilePath)) {
