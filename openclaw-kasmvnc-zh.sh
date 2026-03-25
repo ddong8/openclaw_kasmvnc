@@ -261,13 +261,17 @@ USER root
 RUN rm -f /etc/dpkg/dpkg.cfg.d/docker && rm -f /etc/apt/apt.conf.d/docker-clean
 
 # 将 apt 源替换为清华镜像，加速国内下载
-RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
+RUN cp -a /etc/apt/sources.list.d /etc/apt/sources.list.d.bak 2>/dev/null || true \
+ && cp /etc/apt/sources.list /etc/apt/sources.list.bak 2>/dev/null || true \
+ && sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
  && sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || true \
  && sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list 2>/dev/null || true \
  && sed -i 's/security.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list 2>/dev/null || true
 
 # 安装 git 和 ssh 客户端（部分 npm 包的生命周期脚本和 git 依赖需要）
-RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/* \
+ || (rm -rf /etc/apt/sources.list.d && cp -a /etc/apt/sources.list.d.bak /etc/apt/sources.list.d && cp /etc/apt/sources.list.bak /etc/apt/sources.list 2>/dev/null; \
+     apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/*)
 
 # 接收构建时的代理参数
 ARG HTTP_PROXY
@@ -308,7 +312,7 @@ ARG TARGETARCH
 #   - lsof: systemctl shim 用于端口检测
 #   - procps: ps/pgrep 等进程工具
 #   - locales: 中文 locale 生成
-RUN apt-get update \
+RUN (apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     ca-certificates \
     chromium \
@@ -336,7 +340,14 @@ RUN apt-get update \
     wget \
     xfce4 \
     xfce4-terminal \
-    xterm \
+    xterm) \
+  || (rm -rf /etc/apt/sources.list.d && cp -a /etc/apt/sources.list.d.bak /etc/apt/sources.list.d && cp /etc/apt/sources.list.bak /etc/apt/sources.list 2>/dev/null; \
+      apt-get update \
+      && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        ca-certificates chromium curl dbus-x11 fonts-noto-cjk gnupg \
+        fcitx5 fcitx5-rime fcitx5-frontend-gtk3 fcitx5-frontend-qt5 fcitx5-config-qt im-config \
+        jq libdatetime-perl libegl1 libglu1-mesa libglx-mesa0 locales lsof procps \
+        sudo tzdata vim wget xfce4 xfce4-terminal xterm) \
   && ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime \
   && echo "${TZ}" > /etc/timezone \
   && sed -i 's/^# *zh_CN.UTF-8 UTF-8/zh_CN.UTF-8 UTF-8/' /etc/locale.gen \
