@@ -280,11 +280,13 @@ ARG HTTPS_PROXY
 # 通过 npm 全局安装 OpenClaw
 # 配置 npm 使用淘宝镜像源，强制 git 使用 HTTPS 协议
 ARG OPENC_CACHE_BUST=1
-RUN npm config set registry https://registry.npmmirror.com \
- && git config --global url."https://github.com/".insteadOf "git@github.com:" \
+RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
  && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
  && git config --global url."https://".insteadOf "git://" \
- && npm install -g openclaw@latest --no-audit --no-fund \
+ && (npm config set registry https://registry.npmmirror.com \
+     && npm install -g openclaw@latest --no-audit --no-fund \
+     || (npm config set registry https://registry.npmjs.org \
+         && npm install -g openclaw@latest --no-audit --no-fund)) \
  && chown -R node:node /usr/local/lib/node_modules /usr/local/bin
 
 # 配置时区和语言环境（可通过构建参数覆盖）
@@ -361,13 +363,20 @@ EOF
     cat >>"$d/Dockerfile.kasmvnc" <<'EOF'
 
 # 安装 Docker CE 实现容器内 Docker（DinD），使用阿里云镜像源
-RUN curl -fsSL https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+RUN (curl -fsSL --connect-timeout 15 https://mirrors.aliyun.com/docker-ce/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
   && echo "deb [arch=${TARGETARCH} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://mirrors.aliyun.com/docker-ce/linux/debian bookworm stable" \
      > /etc/apt/sources.list.d/docker.list \
   && apt-get update \
   && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
-     docker-ce docker-ce-cli containerd.io docker-compose-plugin \
-  && rm -rf /var/lib/apt/lists/*
+     docker-ce docker-ce-cli containerd.io docker-compose-plugin) \
+  || (rm -f /usr/share/keyrings/docker-archive-keyring.gpg /etc/apt/sources.list.d/docker.list; \
+      curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+      && echo "deb [arch=${TARGETARCH} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable" \
+         > /etc/apt/sources.list.d/docker.list \
+      && apt-get update \
+      && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends --fix-missing \
+         docker-ce docker-ce-cli containerd.io docker-compose-plugin); \
+  rm -rf /var/lib/apt/lists/*
 EOF
   fi
 
