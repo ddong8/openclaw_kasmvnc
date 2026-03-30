@@ -242,21 +242,6 @@ RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
  && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
  && git config --global url."https://".insteadOf "git://"
 
-# Pre-install and configure self-improving-agent skill
-RUN git clone --depth 1 https://github.com/peterskoett/self-improving-agent.git \
-      /home/node/.openclaw/skills/self-improving-agent \
- && rm -rf /home/node/.openclaw/skills/self-improving-agent/.git \
- && chmod +x /home/node/.openclaw/skills/self-improving-agent/scripts/*.sh \
- && cp -r /home/node/.openclaw/skills/self-improving-agent/hooks/openclaw \
-      /home/node/.openclaw/hooks/self-improvement \
- && mkdir -p /home/node/.openclaw/workspace/.learnings \
- && printf '# Learnings\n\nCorrections, insights, and knowledge gaps captured during development.\n\n**Categories**: correction | insight | knowledge_gap | best_practice\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/LEARNINGS.md \
- && printf '# Errors\n\nCommand failures and integration errors.\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/ERRORS.md \
- && printf '# Feature Requests\n\nCapabilities requested by the user.\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/FEATURE_REQUESTS.md
-
 EXPOSE 18789 18790 8443 8444
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

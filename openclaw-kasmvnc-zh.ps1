@@ -408,21 +408,6 @@ RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
  && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
  && git config --global url."https://".insteadOf "git://"
 
-# 预装并配置 self-improving-agent 技能
-RUN git clone --depth 1 https://github.com/peterskoett/self-improving-agent.git \
-      /home/node/.openclaw/skills/self-improving-agent \
- && rm -rf /home/node/.openclaw/skills/self-improving-agent/.git \
- && chmod +x /home/node/.openclaw/skills/self-improving-agent/scripts/*.sh \
- && cp -r /home/node/.openclaw/skills/self-improving-agent/hooks/openclaw \
-      /home/node/.openclaw/hooks/self-improvement \
- && mkdir -p /home/node/.openclaw/workspace/.learnings \
- && printf '# Learnings\n\nCorrections, insights, and knowledge gaps captured during development.\n\n**Categories**: correction | insight | knowledge_gap | best_practice\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/LEARNINGS.md \
- && printf '# Errors\n\nCommand failures and integration errors.\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/ERRORS.md \
- && printf '# Feature Requests\n\nCapabilities requested by the user.\n\n---\n' \
-      > /home/node/.openclaw/workspace/.learnings/FEATURE_REQUESTS.md
-
 EXPOSE 18789 18790 8443 8444
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
@@ -647,42 +632,6 @@ RemainAfterExit=yes
 [Install]
 WantedBy=default.target
 EOSVC
-fi
-
-# Pre-install / update self-improving-agent skill
-SKILL_DIR="${HOME}/.openclaw/skills/self-improving-agent"
-if [ ! -d "${SKILL_DIR}/scripts" ] && [ ! -f "${SKILL_DIR}/SKILL.md" ]; then
-  echo "Installing self-improving-agent skill..." >&2
-  mkdir -p "${HOME}/.openclaw/skills"
-  git clone --depth 1 https://github.com/peterskoett/self-improving-agent.git "${SKILL_DIR}" 2>/dev/null \
-    && rm -rf "${SKILL_DIR}/.git" || true
-fi
-# Ensure scripts are executable
-chmod +x "${SKILL_DIR}/scripts/"*.sh 2>/dev/null || true
-# Install hook if missing
-if [ -d "${SKILL_DIR}/hooks/openclaw" ] && [ ! -d "${HOME}/.openclaw/hooks/self-improvement" ]; then
-  mkdir -p "${HOME}/.openclaw/hooks"
-  cp -r "${SKILL_DIR}/hooks/openclaw" "${HOME}/.openclaw/hooks/self-improvement"
-fi
-# Initialize .learnings directory if missing
-LEARN_DIR="${HOME}/.openclaw/workspace/.learnings"
-if [ ! -d "${LEARN_DIR}" ]; then
-  mkdir -p "${LEARN_DIR}"
-  printf '# Learnings\n\nCorrections, insights, and knowledge gaps captured during development.\n\n**Categories**: correction | insight | knowledge_gap | best_practice\n\n---\n' > "${LEARN_DIR}/LEARNINGS.md"
-  printf '# Errors\n\nCommand failures and integration errors.\n\n---\n' > "${LEARN_DIR}/ERRORS.md"
-  printf '# Feature Requests\n\nCapabilities requested by the user.\n\n---\n' > "${LEARN_DIR}/FEATURE_REQUESTS.md"
-fi
-# Ensure skill is enabled in openclaw.json
-OCFG="${HOME}/.openclaw/openclaw.json"
-mkdir -p "${HOME}/.openclaw"
-if [ ! -f "${OCFG}" ]; then
-  echo '{}' > "${OCFG}"
-fi
-if command -v jq >/dev/null 2>&1; then
-  if ! jq -e '.skills.entries["self-improving-agent"].enabled' "${OCFG}" >/dev/null 2>&1; then
-    jq '.skills.entries["self-improving-agent"].enabled = true' "${OCFG}" > "${OCFG}.tmp" 2>/dev/null \
-      && mv "${OCFG}.tmp" "${OCFG}" || true
-  fi
 fi
 
 # Clear stop marker (auto-start after container restart)
