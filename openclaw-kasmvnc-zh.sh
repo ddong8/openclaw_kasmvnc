@@ -524,16 +524,14 @@ KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
 RESOLUTION="${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}"
 DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
+# 修复挂载卷时 /home/node 可能归 root 所有的问题
+if [ ! -w "${HOME}" ]; then
+  sudo chown -R "$(id -u):$(id -g)" "${HOME}" 2>/dev/null || true
+fi
+
 # 创建 VNC 和 XDG 运行时目录
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}" "${HOME}/.openclaw"
-# 确保目录属于当前用户（处理挂载卷的情况）
-if [ -w "${HOME}/.openclaw" ]; then
-  chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}" "${HOME}/.openclaw" 2>/dev/null || true
-else
-  # 如果没有写权限，尝试用 sudo 修复
-  sudo chown -R "$(id -u):$(id -g)" "${HOME}/.openclaw" 2>/dev/null || true
-  chmod 700 "${HOME}/.openclaw" 2>/dev/null || true
-fi
+chmod 700 "${HOME}/.vnc" "${XDG_RUNTIME_DIR}" "${HOME}/.openclaw" 2>/dev/null || true
 
 # 后台启动 Docker 守护进程（DinD 支持），等待 socket 就绪（仅在未禁用 DinD 时）
 if [ "${NO_DIND:-0}" != "1" ] && command -v dockerd >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
