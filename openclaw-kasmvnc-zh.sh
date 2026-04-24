@@ -550,8 +550,6 @@ mkdir -p "${HOME}/Desktop"
 [ -f "${HOME}/Desktop/chromium.desktop" ] || cp /usr/share/applications/chromium-kasm.desktop "${HOME}/Desktop/chromium.desktop" 2>/dev/null || true
 [ -f "${HOME}/Desktop/vscode.desktop" ] || cp /usr/share/applications/code.desktop "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
 chmod +x "${HOME}/Desktop/chromium.desktop" "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
-gio set "${HOME}/Desktop/chromium.desktop" metadata::trusted true 2>/dev/null || true
-gio set "${HOME}/Desktop/vscode.desktop" metadata::trusted true 2>/dev/null || true
 chmod +x "${HOME}/Desktop"/*.desktop 2>/dev/null || true
 
 # 配置 npm 使用淘宝镜像源
