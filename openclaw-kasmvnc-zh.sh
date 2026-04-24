@@ -386,7 +386,7 @@ EOF
 # 同时修改桌面快捷方式指向此包装脚本，并创建自定义 .desktop 文件
 RUN printf '%s\n' \
   '#!/usr/bin/env bash' \
-  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --test-type --no-first-run --disable-background-networking --disable-sync --disable-default-apps --disable-component-update --disable-features=TranslateUI --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 "$@"' \
+  'exec /usr/bin/chromium --no-sandbox --disable-gpu --disable-dev-shm-usage --disable-software-rasterizer --test-type --no-first-run --disable-background-networking --disable-sync --disable-default-apps --disable-component-update --disable-features=TranslateUI --user-data-dir="${HOME}/.config/chromium-user" --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1 "$@"' \
   > /usr/local/bin/chromium-kasm \
   && chmod +x /usr/local/bin/chromium-kasm \
   && sed -i 's|^Exec=/usr/bin/chromium %U|Exec=/usr/local/bin/chromium-kasm %U|' /usr/share/applications/chromium.desktop \
