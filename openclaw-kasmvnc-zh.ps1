@@ -816,12 +816,16 @@ function Assert-GatewayRunning {
   if ($LASTEXITCODE -ne 0 -or "$running".Trim() -ne "true") {
     throw "openclaw-gateway is not running (container: $cid)."
   }
-  # Also verify the gateway process inside the container is alive
-  for ($i = 0; $i -lt 60; $i++) {
+  # Also verify the gateway process inside the container is alive (最多等待 240 秒)
+  for ($i = 0; $i -lt 120; $i++) {
     $result = & docker exec $cid sh -c "systemctl is-active openclaw-gateway" 2>$null
     if ($LASTEXITCODE -eq 0) { return }
     Start-Sleep -Seconds 2
   }
+  Write-Host "=== 容器日志最近 80 行 ===" -ForegroundColor Yellow
+  & docker logs --tail 80 $cid
+  Write-Host "=== Gateway 日志最近 60 行 ===" -ForegroundColor Yellow
+  & docker exec $cid sh -c "tail -n 60 /tmp/openclaw-gateway.log 2>/dev/null"
   throw "Container is running but gateway process is not responding (container: $cid)."
 }
 

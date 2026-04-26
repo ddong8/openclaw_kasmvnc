@@ -934,15 +934,19 @@ assert_gateway_running() {
     echo "openclaw-gateway is not running (container: $cid)." >&2
     exit 1
   fi
-  # Also verify the gateway process inside the container is alive
+  # Also verify the gateway process inside the container is alive（最多等待 240 秒）
   local retries=0
-  while [ $retries -lt 60 ]; do
+  while [ $retries -lt 120 ]; do
     if docker exec "$cid" sh -c 'systemctl is-active openclaw-gateway' >/dev/null 2>&1; then
       return 0
     fi
     retries=$((retries + 1))
     sleep 2
   done
+  echo "=== 容器日志最近 80 行 ===" >&2
+  docker logs --tail 80 "$cid" >&2 2>&1 || true
+  echo "=== Gateway 日志最近 60 行 ===" >&2
+  docker exec "$cid" sh -c 'tail -n 60 /tmp/openclaw-gateway.log 2>/dev/null' >&2 || true
   echo "Container is running but gateway process is not responding (container: $cid)." >&2
   exit 1
 }
