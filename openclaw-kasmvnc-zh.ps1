@@ -589,7 +589,7 @@ data_loss_prevention:
       - image/png
 KASMCFG
 
-vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" >/tmp/openclaw-kasmvnc.log 2>&1 || true
+vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" -publicIP 127.0.0.1 >/tmp/openclaw-kasmvnc.log 2>&1 || true
 
 if ! pgrep -u "$(id -u)" -f "xfce4-session" >/dev/null 2>&1; then
   DISPLAY="${DISPLAY}" nohup sh "${HOME}/.vnc/xstartup" >/tmp/openclaw-xfce-autostart.log 2>&1 &

@@ -677,7 +677,7 @@ data_loss_prevention:
 KASMCFG
 
 # ── 启动 VNC 服务器 ──
-vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" >/tmp/openclaw-kasmvnc.log 2>&1 || true
+vncserver "${DISPLAY}" -geometry "${RESOLUTION}" -depth "${DEPTH}" -xstartup "${HOME}/.vnc/xstartup" -publicIP 127.0.0.1 >/tmp/openclaw-kasmvnc.log 2>&1 || true
 
 # 如果 XFCE 会话未自动启动，手动拉起（兜底机制）
 if ! pgrep -u "$(id -u)" -f "xfce4-session" >/dev/null 2>&1; then
