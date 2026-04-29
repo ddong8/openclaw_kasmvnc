@@ -356,20 +356,6 @@ RUN printf '%s\n' \
     'Icon=chromium' \
     > /usr/share/xfce4/helpers/chromium-kasm.desktop
 
-# Create system-wide Hermes Agent desktop entry (binary installed later as USER node)
-RUN printf '%s\n' \
-    '[Desktop Entry]' \
-    'Version=1.0' \
-    'Name=Hermes Agent' \
-    'GenericName=AI Coding Agent' \
-    'Comment=Nous Research Hermes Agent (terminal)' \
-    'Exec=xfce4-terminal --title=Hermes-Agent -e "bash -c '"'"'/home/node/.local/bin/hermes; exec bash'"'"'"' \
-    'Terminal=false' \
-    'Type=Application' \
-    'Icon=utilities-terminal' \
-    'Categories=Development;Utility;' \
-    > /usr/share/applications/hermes-agent.desktop
-
 # Install VS Code
 RUN set -eux; \
   mkdir -p /etc/apt/keyrings; \
@@ -380,13 +366,20 @@ RUN set -eux; \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
   rm -rf /var/lib/apt/lists/*
 
-# Create desktop icons for Chromium, VS Code and Hermes Agent
+# Create desktop icons for Chromium and VS Code
 RUN mkdir -p /home/node/Desktop \
   && cp /usr/share/applications/chromium-kasm.desktop /home/node/Desktop/chromium.desktop \
   && cp /usr/share/applications/code.desktop /home/node/Desktop/vscode.desktop \
-  && cp /usr/share/applications/hermes-agent.desktop /home/node/Desktop/hermes-agent.desktop \
-  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop /home/node/Desktop/hermes-agent.desktop \
+  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop \
   && chown -R node:node /home/node/Desktop
+
+# Install Hermes Agent (Nous Research) — runs as root, FHS layout puts binary at /usr/local/bin/hermes (survives /home/node volume mount)
+ARG INSTALL_HERMES=1
+RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
+      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+        | bash -s -- --skip-setup \
+      || echo "[hermes-agent] install.sh failed; container will lack hermes binary"; \
+    fi
 
 # Download and install KasmVNC .deb for the target architecture
 RUN set -eux; \
@@ -420,15 +413,6 @@ USER node
 RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
  && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
  && git config --global url."https://".insteadOf "git://"
-
-# Install Hermes Agent (Nous Research) — runs as user node into ~/.hermes and ~/.local/bin
-ENV PATH="/home/node/.local/bin:${PATH}"
-ARG INSTALL_HERMES=1
-RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
-      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
-        | bash -s -- --skip-setup \
-      || echo "[hermes-agent] install.sh failed; container will lack hermes binary"; \
-    fi
 
 EXPOSE 18789 18790 8443 8444
 
@@ -484,8 +468,7 @@ sed -i '/^alias openclaw=/d' "${HOME}/.bashrc" 2>/dev/null || true
 mkdir -p "${HOME}/Desktop"
 [ -f "${HOME}/Desktop/chromium.desktop" ] || cp /usr/share/applications/chromium-kasm.desktop "${HOME}/Desktop/chromium.desktop" 2>/dev/null || true
 [ -f "${HOME}/Desktop/vscode.desktop" ] || cp /usr/share/applications/code.desktop "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
-[ -f "${HOME}/Desktop/hermes-agent.desktop" ] || cp /usr/share/applications/hermes-agent.desktop "${HOME}/Desktop/hermes-agent.desktop" 2>/dev/null || true
-chmod +x "${HOME}/Desktop/chromium.desktop" "${HOME}/Desktop/vscode.desktop" "${HOME}/Desktop/hermes-agent.desktop" 2>/dev/null || true
+chmod +x "${HOME}/Desktop/chromium.desktop" "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
 chmod +x "${HOME}/Desktop"/*.desktop 2>/dev/null || true
 
 # Configure NPM registry based on USE_CN_MIRROR

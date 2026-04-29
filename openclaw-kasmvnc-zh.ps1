@@ -343,20 +343,6 @@ RUN printf '%s\n' \
     'Icon=chromium' \
     > /usr/share/xfce4/helpers/chromium-kasm.desktop
 
-# 创建系统级 Hermes Agent 桌面入口（实际二进制后续在 USER node 阶段安装）
-RUN printf '%s\n' \
-    '[Desktop Entry]' \
-    'Version=1.0' \
-    'Name=Hermes Agent' \
-    'GenericName=AI 编码助手' \
-    'Comment=Nous Research Hermes Agent (终端)' \
-    'Exec=xfce4-terminal --title=Hermes-Agent -e "bash -c '"'"'/home/node/.local/bin/hermes; exec bash'"'"'"' \
-    'Terminal=false' \
-    'Type=Application' \
-    'Icon=utilities-terminal' \
-    'Categories=Development;Utility;' \
-    > /usr/share/applications/hermes-agent.desktop
-
 RUN set -eux; \
   case "${TARGETARCH}" in \
     amd64) pkg_arch="amd64" ;; \
@@ -394,13 +380,20 @@ RUN set -eux; \
   DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends code; \
   rm -rf /var/lib/apt/lists/*
 
-# 创建 Chromium、VS Code 和 Hermes Agent 桌面图标
+# 创建 Chromium 和 VS Code 桌面图标
 RUN mkdir -p /home/node/Desktop \
   && cp /usr/share/applications/chromium-kasm.desktop /home/node/Desktop/chromium.desktop \
   && cp /usr/share/applications/code.desktop /home/node/Desktop/vscode.desktop \
-  && cp /usr/share/applications/hermes-agent.desktop /home/node/Desktop/hermes-agent.desktop \
-  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop /home/node/Desktop/hermes-agent.desktop \
+  && chmod +x /home/node/Desktop/chromium.desktop /home/node/Desktop/vscode.desktop \
   && chown -R node:node /home/node/Desktop
+
+# 安装 Hermes Agent（Nous Research）— root 安装，FHS 布局把二进制放到 /usr/local/bin/hermes（不被 /home/node 卷挂载覆盖）
+ARG INSTALL_HERMES=1
+RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
+      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
+        | bash -s -- --skip-setup \
+      || echo "[hermes-agent] install.sh 失败；容器将不包含 hermes 命令"; \
+    fi
 
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
 COPY scripts/docker/kasmvnc-startup.sh /usr/local/bin/kasmvnc-startup
@@ -422,15 +415,6 @@ USER node
 RUN git config --global url."https://github.com/".insteadOf "git@github.com:" \
  && git config --global url."https://github.com/".insteadOf "ssh://git@github.com/" \
  && git config --global url."https://".insteadOf "git://"
-
-# 安装 Hermes Agent（Nous Research）— 在 node 用户下安装到 ~/.hermes 与 ~/.local/bin
-ENV PATH="/home/node/.local/bin:${PATH}"
-ARG INSTALL_HERMES=1
-RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
-      curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
-        | bash -s -- --skip-setup \
-      || echo "[hermes-agent] install.sh 失败；容器将不包含 hermes 命令"; \
-    fi
 
 EXPOSE 18789 18790 8443 8444
 
@@ -493,8 +477,7 @@ sed -i '/^alias openclaw=/d' "${HOME}/.bashrc" 2>/dev/null || true
 mkdir -p "${HOME}/Desktop"
 [ -f "${HOME}/Desktop/chromium.desktop" ] || cp /usr/share/applications/chromium-kasm.desktop "${HOME}/Desktop/chromium.desktop" 2>/dev/null || true
 [ -f "${HOME}/Desktop/vscode.desktop" ] || cp /usr/share/applications/code.desktop "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
-[ -f "${HOME}/Desktop/hermes-agent.desktop" ] || cp /usr/share/applications/hermes-agent.desktop "${HOME}/Desktop/hermes-agent.desktop" 2>/dev/null || true
-chmod +x "${HOME}/Desktop/chromium.desktop" "${HOME}/Desktop/vscode.desktop" "${HOME}/Desktop/hermes-agent.desktop" 2>/dev/null || true
+chmod +x "${HOME}/Desktop/chromium.desktop" "${HOME}/Desktop/vscode.desktop" 2>/dev/null || true
 chmod +x "${HOME}/Desktop"/*.desktop 2>/dev/null || true
 
 # Configure NPM registry
