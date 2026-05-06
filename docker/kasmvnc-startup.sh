@@ -24,10 +24,12 @@ KASMVNC_PASSWORD="${OPENCLAW_KASMVNC_PASSWORD:-}"
 RESOLUTION="${OPENCLAW_KASMVNC_RESOLUTION:-1920x1080}"
 DEPTH="${OPENCLAW_KASMVNC_DEPTH:-24}"
 
-# 修复挂载卷时 /home/node 可能归 root 所有的问题
-if [ ! -w "${HOME}" ]; then
-  sudo chown -R "$(id -u):$(id -g)" "${HOME}" 2>/dev/null || true
-fi
+# 修复挂载卷时 /home/node 或子目录可能归 root 所有的问题（每次启动都修，幂等）
+sudo chown "$(id -u):$(id -g)" "${HOME}" 2>/dev/null || true
+[ -e "${HOME}/.openclaw" ] && sudo chown -R "$(id -u):$(id -g)" "${HOME}/.openclaw" 2>/dev/null || true
+[ -e "${HOME}/.vnc" ] && sudo chown -R "$(id -u):$(id -g)" "${HOME}/.vnc" 2>/dev/null || true
+[ -e "${HOME}/.config" ] && sudo chown -R "$(id -u):$(id -g)" "${HOME}/.config" 2>/dev/null || true
+[ -e "${HOME}/Desktop" ] && sudo chown -R "$(id -u):$(id -g)" "${HOME}/Desktop" 2>/dev/null || true
 
 # 创建 VNC 和 XDG 运行时目录
 mkdir -p "${HOME}/.vnc" "${XDG_RUNTIME_DIR}" "${HOME}/.openclaw"
