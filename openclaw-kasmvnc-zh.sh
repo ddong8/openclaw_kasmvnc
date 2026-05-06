@@ -437,6 +437,7 @@ RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
       curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
         | bash -s -- --skip-setup \
       || echo "[hermes-agent] install.sh 失败；容器将不包含 hermes 命令"; \
+      [ -d /usr/local/lib/hermes-agent ] && chown -R node:node /usr/local/lib/hermes-agent || true; \
     fi
 
 # 根据目标架构（amd64/arm64）下载并安装对应版本的 KasmVNC .deb 包

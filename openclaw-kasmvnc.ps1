@@ -328,6 +328,7 @@ RUN if [ "${INSTALL_HERMES}" = "1" ]; then \
       curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh \
         | bash -s -- --skip-setup \
       || echo "[hermes-agent] install.sh failed; container will lack hermes binary"; \
+      [ -d /usr/local/lib/hermes-agent ] && chown -R node:node /usr/local/lib/hermes-agent || true; \
     fi
 
 COPY scripts/docker/systemctl-shim.sh /usr/local/bin/systemctl
