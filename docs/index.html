@@ -326,14 +326,16 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
         <button class="copy-btn" onclick="copyCode('code-docker-nodind',this)">复制</button>
         <pre id="code-docker-nodind">docker run -d \
   --name openclaw-kasmvnc \
+  --security-opt seccomp=unconfined \
   --shm-size=2g \
   -p 18789:18789 \
   -p 8443:8444 \
   -e OPENCLAW_GATEWAY_TOKEN=your-token-here \
   -e OPENCLAW_KASMVNC_PASSWORD=your-password-here \
-  -v ~/.openclaw:/home/node/.openclaw \
+  -v ~/openclaw-data:/home/node \
   ddong8/openclaw-kasmvnc:latest-no-dind</pre>
       </div>
+      <p class="desc" style="margin-top:8px;font-size:.85rem;color:var(--text3)"><strong>注意</strong>：Docker &lt; 23.0 必须加 <code>--security-opt seccomp=unconfined</code>，否则 XFCE 桌面会黑屏（旧版默认 seccomp 禁用 close_range 系统调用）。Docker 23.0+ 可省略此参数。</p>
     </div>
     <p style="color:var(--text3);font-size:.85rem;margin-top:16px;text-align:center">更多镜像变体和配置请参考 <a href="https://github.com/ddong8/openclaw-kasmvnc/blob/main/DOCKER.md" target="_blank">DOCKER.md</a></p>
   </div>

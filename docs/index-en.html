@@ -326,14 +326,16 @@ footer .footer-links{display:flex;justify-content:center;gap:24px;margin-bottom:
         <button class="copy-btn" onclick="copyCode('code-docker-nodind',this)">Copy</button>
         <pre id="code-docker-nodind">docker run -d \
   --name openclaw-kasmvnc \
+  --security-opt seccomp=unconfined \
   --shm-size=2g \
   -p 18789:18789 \
   -p 8443:8444 \
   -e OPENCLAW_GATEWAY_TOKEN=your-token-here \
   -e OPENCLAW_KASMVNC_PASSWORD=your-password-here \
-  -v ~/.openclaw:/home/node/.openclaw \
+  -v ~/openclaw-data:/home/node \
   ddong8/openclaw-kasmvnc:latest-intl-no-dind</pre>
       </div>
+      <p class="desc" style="margin-top:8px;font-size:.85rem;color:var(--text3)"><strong>Note</strong>: <code>--security-opt seccomp=unconfined</code> is required on Docker &lt; 23.0 — older default seccomp blocks the <code>close_range</code> syscall, causing XFCE to render a black screen. Docker 23.0+ allows it by default and the flag may be omitted.</p>
     </div>
     <p style="color:var(--text3);font-size:.85rem;margin-top:16px;text-align:center">For more image variants and configuration, see <a href="https://github.com/ddong8/openclaw-kasmvnc/blob/main/DOCKER-en.md" target="_blank">DOCKER-en.md</a></p>
   </div>
