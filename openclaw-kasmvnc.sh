@@ -215,9 +215,17 @@ services:
 EOF
 
   # If Docker-in-Docker is not disabled, add privileged: true
+  # Otherwise, add security_opt to allow close_range syscall (needed by GLib/XFCE)
+  # On Docker < 23, default seccomp blocks close_range and XFCE components fail to spawn (black screen).
+  # privileged mode bypasses seccomp entirely so the DinD path doesn't need this.
   if [ "${NO_DIND:-0}" != "1" ]; then
     cat >>"$d/docker-compose.yml" <<'EOF'
     privileged: true
+EOF
+  else
+    cat >>"$d/docker-compose.yml" <<'EOF'
+    security_opt:
+      - seccomp:unconfined
 EOF
   fi
 

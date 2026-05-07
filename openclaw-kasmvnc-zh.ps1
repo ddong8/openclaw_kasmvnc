@@ -170,8 +170,12 @@ services:
 '@
 
   # 仅在未禁用 DinD 时添加 privileged: true
+  # 否则添加 security_opt: seccomp:unconfined（让 XFCE/GLib 能用 close_range 系统调用）
+  # 旧版 Docker（< 23.0）默认 seccomp 禁用 close_range，会导致 XFCE 桌面起不来 → 黑屏
   if (-not $NoDinD) {
     $composeYaml += "`n    privileged: true"
+  } else {
+    $composeYaml += "`n    security_opt:`n      - seccomp:unconfined"
   }
 
   $composeYaml += @'

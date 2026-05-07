@@ -155,8 +155,12 @@ services:
 '@
 
   # Only add privileged: true if DinD is not disabled
+  # Otherwise add security_opt: seccomp:unconfined so XFCE/GLib's close_range syscall is allowed
+  # (Docker < 23.0 default seccomp blocks close_range, causing the XFCE desktop to fail to spawn -> black screen)
   if (-not $NoDinD) {
     $composeYaml += "`n    privileged: true"
+  } else {
+    $composeYaml += "`n    security_opt:`n      - seccomp:unconfined"
   }
 
   $composeYaml += @'

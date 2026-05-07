@@ -69,6 +69,7 @@ If you don't need OpenClaw to manage sub-containers, disable DinD for better sec
 ```bash
 docker run -d \
   --name openclaw-kasmvnc \
+  --security-opt seccomp=unconfined \
   --shm-size=2g \
   -p 18789:18789 \
   -p 8443:8444 \
@@ -78,7 +79,9 @@ docker run -d \
   ddong8/openclaw-kasmvnc:latest-no-dind
 ```
 
-Note: The `--privileged` flag is not needed when DinD is disabled.
+Notes:
+- The `--privileged` flag is not needed when DinD is disabled.
+- **`--security-opt seccomp=unconfined` is required on Docker < 23.0** — older Docker default seccomp profile blocks the `close_range` syscall that XFCE/GLib uses to spawn child processes, causing the desktop to render as a black screen. Docker 23.0+ allows this syscall by default and the flag becomes unnecessary. The DinD variants don't need it because `--privileged` already disables seccomp.
 
 ## GPU Support
 

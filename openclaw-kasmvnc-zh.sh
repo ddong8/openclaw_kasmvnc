@@ -225,9 +225,17 @@ services:
 EOF
 
   # 如果未禁用 Docker-in-Docker，则添加 privileged: true
+  # 否则添加 security_opt 让容器能用 close_range 系统调用（GLib/XFCE 需要）
+  # 旧版 Docker（< 23）默认 seccomp 禁用 close_range，会导致 XFCE 组件起不来 → 黑屏
+  # privileged 本身已禁用所有 seccomp 限制，DinD 路径不需要再加
   if [ "${NO_DIND:-0}" != "1" ]; then
     cat >>"$d/docker-compose.yml" <<'EOF'
     privileged: true
+EOF
+  else
+    cat >>"$d/docker-compose.yml" <<'EOF'
+    security_opt:
+      - seccomp:unconfined
 EOF
   fi
 

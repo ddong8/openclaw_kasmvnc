@@ -213,6 +213,7 @@ powershell -ExecutionPolicy Bypass -File .\openclaw-kasmvnc.ps1 -Command install
 When `--no-dind` is enabled:
 - Docker CE is not installed in the container
 - Container runs without `privileged: true` (more secure)
+- The generated `docker-compose.yml` adds `security_opt: [seccomp:unconfined]` automatically — required on Docker < 23.0 so XFCE/GLib's `close_range` syscall works (otherwise the desktop renders as a black screen). Docker 23.0+ allows it by default.
 - OpenClaw cannot create or manage child containers
 
 </details>

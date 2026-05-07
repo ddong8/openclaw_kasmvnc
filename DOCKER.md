@@ -133,6 +133,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name openclaw-kasmvnc \
+  --security-opt seccomp=unconfined \
   --shm-size=2g \
   -p 18789:18789 \
   -p 8443:8444 \
@@ -142,7 +143,9 @@ docker run -d \
   ddong8/openclaw-kasmvnc:latest-no-dind
 ```
 
-注意：禁用 DinD 后不需要 `--privileged` 参数。
+注意：
+- 禁用 DinD 后不需要 `--privileged` 参数。
+- **Docker < 23.0 必须加 `--security-opt seccomp=unconfined`** —— 旧版 Docker 默认 seccomp 配置禁用了 XFCE/GLib spawn 子进程时用的 `close_range` 系统调用，会导致桌面黑屏（xfwm4/xfce4-panel 等组件起不来）。Docker 23.0+ 默认已允许此调用，可以省略此参数。DinD 版本因为带 `--privileged`，已经禁用所有 seccomp 限制，所以不受影响。
 
 ## GPU 支持
 

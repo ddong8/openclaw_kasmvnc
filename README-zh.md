@@ -214,6 +214,7 @@ powershell -ExecutionPolicy Bypass -File .\openclaw-kasmvnc-zh.ps1 -Command inst
 启用 `--no-dind` 后：
 - 容器内不会安装 Docker CE
 - 容器不需要 `privileged: true` 权限（更安全）
+- 生成的 `docker-compose.yml` 会自动加上 `security_opt: [seccomp:unconfined]` —— Docker < 23.0 必须，否则 XFCE/GLib 用的 `close_range` 系统调用会被默认 seccomp 拦截，桌面会黑屏。Docker 23.0+ 默认已允许此调用。
 - OpenClaw 无法创建或管理子容器
 
 </details>
